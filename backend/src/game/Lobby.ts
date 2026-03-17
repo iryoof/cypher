@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import { Player, GameSettings, TextEntry, GameArchive } from '../../shared/types'
+import { Player, GameSettings, TextEntry, GameArchive } from 'shared/types'
 
 export class Lobby {
   private code: string

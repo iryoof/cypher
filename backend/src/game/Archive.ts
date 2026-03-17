@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { GameArchive } from '../../shared/types'
+import { GameArchive } from 'shared/types'
 
 export class Archive {
   private archiveDir: string = './archives'

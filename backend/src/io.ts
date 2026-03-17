@@ -1,6 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { GameManager } from './game/GameManager'
-import { GameState, Player } from '../shared/types'
+import { GameState, Player } from 'shared/types'
 
 export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager) {
   io.on('connection', (socket: Socket) => {

@@ -1,5 +1,5 @@
 import { Lobby } from './Lobby'
-import { GameSettings, GameArchive } from '../../shared/types'
+import { GameSettings, GameArchive } from 'shared/types'
 import { generateLobbyCode } from '../utils/codeGenerator'
 
 export class GameManager {
