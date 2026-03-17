@@ -1,10 +1,9 @@
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { GameManager } from './game/GameManager'
-import { GameState, Player } from 'shared/types'
 
 export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager) {
   io.on('connection', (socket: Socket) => {
-    console.log(`✅ Client connected: ${socket.id}`)
+    console.log(`Client connected: ${socket.id}`)
 
     // Join Lobby
     socket.on('join-lobby', (code: string, nickname: string) => {
@@ -13,7 +12,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         socket.join(code)
         socket.emit('lobby-joined', lobby.getState())
         io.to(code).emit('state-update', lobby.getState())
-        console.log(`👤 ${nickname} joined lobby ${code}`)
+        console.log(`${nickname} joined lobby ${code}`)
       } catch (error: any) {
         socket.emit('error', error.message)
       }
@@ -26,7 +25,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         const code = lobby.getCode()
         socket.join(code)
         socket.emit('lobby-created', code, lobby.getState())
-        console.log(`🎮 New lobby created: ${code}`)
+        console.log(`New lobby created: ${code}`)
       } catch (error: any) {
         socket.emit('error', error.message)
       }
@@ -37,9 +36,10 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
       try {
         const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
-        
+
+        const author = lobby.getPlayers().find(p => p.id === playerId)?.nickname || 'Unknown'
         lobby.submitText(playerId, text)
-        io.to(lobby.getCode()).emit('text-received', text)
+        io.to(lobby.getCode()).emit('text-received', text, author)
       } catch (error: any) {
         socket.emit('error', error.message)
       }
@@ -50,12 +50,12 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
       try {
         const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
-        
+
         lobby.setPlayerReady(playerId)
         const allReady = lobby.getAllPlayersReady()
-        
+
         io.to(lobby.getCode()).emit('state-update', lobby.getState())
-        
+
         if (allReady) {
           io.to(lobby.getCode()).emit('ready-check-needed')
         }
@@ -66,22 +66,32 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
 
     // Start Game
     socket.on('start-game', () => {
-      console.log('🎮 Game started')
+      try {
+        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        if (!lobby) throw new Error('Lobby not found')
+
+        lobby.startGame()
+        io.to(lobby.getCode()).emit('state-update', lobby.getState())
+        io.to(lobby.getCode()).emit('round-started', lobby.getState().currentRound)
+        console.log(`Game started: ${lobby.getCode()}`)
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
     })
 
     // Next Round
     socket.on('next-round', () => {
-      console.log('➡️ Next round')
+      console.log('Next round')
     })
 
     // End Game
     socket.on('end-game', () => {
-      console.log('🏁 Game ended')
+      console.log('Game ended')
     })
 
     // Disconnect
     socket.on('disconnect', () => {
-      console.log(`❌ Client disconnected: ${socket.id}`)
+      console.log(`Client disconnected: ${socket.id}`)
       gameManager.removePlayer(socket.id)
     })
 
