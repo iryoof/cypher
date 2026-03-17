@@ -1,35 +1,19 @@
 #!/usr/bin/env node
-const { exec } = require('child_process');
-const path = require('path');
+const { execSync } = require('child_process');
 
-function run(cmd) {
-  console.log(`Running: ${cmd}`);
-  return new Promise((resolve, reject) => {
-    exec(cmd, { cwd: __dirname }, (error, stdout, stderr) => {
-      if (stdout) console.log(stdout);
-      if (stderr) console.log(stderr);
-      if (error) reject(error);
-      else resolve();
-    });
-  });
+try {
+  console.log('📦 Installing root dependencies...');
+  execSync('npm install --legacy-peer-deps', { stdio: 'inherit' });
+  
+  console.log('📦 Installing frontend dependencies...');
+  execSync('cd frontend && npm install --legacy-peer-deps', { stdio: 'inherit' });
+  
+  console.log('🔨 Building frontend...');
+  execSync('cd frontend && npm run build', { stdio: 'inherit' });
+  
+  console.log('✅ Build complete!');
+  process.exit(0);
+} catch (error) {
+  console.error('❌ Build failed!');
+  process.exit(1);
 }
-
-async function build() {
-  try {
-    console.log('Installing root dependencies...');
-    await run('npm install --legacy-peer-deps');
-    
-    console.log('Installing frontend dependencies...');
-    await run('npm install --legacy-peer-deps --workspace=frontend');
-    
-    console.log('Building frontend...');
-    await run('npm run build --workspace=frontend');
-    
-    console.log('✅ Build complete!');
-  } catch (error) {
-    console.error('❌ Build failed:', error);
-    process.exit(1);
-  }
-}
-
-build();
