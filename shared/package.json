@@ -1,0 +1,8 @@
+{
+  "name": "cypher-shared",
+  "version": "1.0.0",
+  "description": "Shared types for Cypher",
+  "private": true,
+  "main": "types.ts",
+  "types": "types.ts"
+}

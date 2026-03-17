@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: cypher-backend
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npm run build --workspace=backend
+    startCommand: npm start --workspace=backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        fromDatabase:
+          name: cypher
+          property: frontend_url
+    domains:
+      - cypher-backend.render.com
+
+databases:
+  - name: cypher-storage
+    databaseName: cypher
+    user: cypher
+    region: frankfurt
+    plan: free

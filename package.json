@@ -1,0 +1,25 @@
+{
+  "name": "cypher-game",
+  "version": "1.0.0",
+  "description": "Digitales Reimspiel - Collaborative rap lyrics game",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend & npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "build:backend": "npm run build --workspace=backend",
+    "start": "npm start --workspace=backend",
+    "type-check": "npm run type-check --workspace=frontend && npm run type-check --workspace=backend",
+    "lint": "npm run lint --workspace=frontend --workspace=backend"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
