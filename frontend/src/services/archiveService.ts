@@ -1,4 +1,4 @@
-import { GameArchive } from '../../shared/types'
+import { GameArchive } from '../../../shared/types'
 
 const ARCHIVES_KEY = 'cypher-archives'
 

@@ -21,9 +21,11 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
   const [visibleText, setVisibleText] = useState<string>('')
   const [previousAuthor, setPreviousAuthor] = useState<string>('')
 
+  const shouldRunTimer = phase === 'writing' && (gameState?.settings?.timerEnabled ?? false)
+
   const { timeLeft, isRunning } = useTimer(
     gameState?.settings?.timerSeconds || 60,
-    phase === 'writing' && gameState?.settings?.timerEnabled,
+    shouldRunTimer,
     () => {
       // Auto-submit when time is up
       setPhase('ready-check')

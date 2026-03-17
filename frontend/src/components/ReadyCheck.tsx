@@ -1,4 +1,4 @@
-import { Player } from '../../shared/types'
+import { Player } from '../../../shared/types'
 
 interface ReadyCheckProps {
   players: Player[]

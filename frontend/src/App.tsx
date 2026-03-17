@@ -4,7 +4,7 @@ import LobbyScreen from './pages/LobbyScreen'
 import GameScreen from './pages/GameScreen'
 import GameSetup from './pages/GameSetup'
 import ArchiveScreen from './pages/ArchiveScreen'
-import '../styles/globals.css'
+import './styles/globals.css'
 
 export type PageType = 'menu' | 'lobby' | 'setup' | 'game' | 'archive'
 
@@ -33,7 +33,7 @@ function App() {
 
     socket.on('connect', () => {
       console.log('✅ Connected to server')
-      setAppState(prev => ({ ...prev, socket, sessionId: socket.id }))
+      setAppState((prev: AppState) => ({ ...prev, socket, sessionId: socket.id ?? null }))
     })
 
     socket.on('disconnect', () => {
@@ -46,7 +46,7 @@ function App() {
   }, [])
 
   const navigateTo = (page: PageType) => {
-    setAppState(prev => ({ ...prev, currentPage: page }))
+    setAppState((prev: AppState) => ({ ...prev, currentPage: page }))
   }
 
   return (

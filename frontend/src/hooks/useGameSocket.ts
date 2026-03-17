@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Socket } from 'socket.io-client'
-import { GameState, Player } from '../../shared/types'
+import { GameState } from '../../../shared/types'
 
 export function useGameSocket(socket: Socket | null) {
   const [gameState, setGameState] = useState<GameState | null>(null)

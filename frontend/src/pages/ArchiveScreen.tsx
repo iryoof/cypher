@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PageType } from '../App'
-import { GameArchive } from '../../shared/types'
+import { GameArchive } from '../../../shared/types'
 import ArchiveItem from '../components/ArchiveItem'
 
 interface ArchiveScreenProps {
