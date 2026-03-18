@@ -23,7 +23,10 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
 
   useEffect(() => {
     if (!gameState) {
-      onNavigate('menu')
+      const timer = setTimeout(() => {
+        onNavigate('menu')
+      }, 300)
+      return () => clearTimeout(timer)
     }
   }, [gameState, onNavigate])
 
