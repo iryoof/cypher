@@ -21,6 +21,21 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
     setLobbyCode(gameState?.lobbyCode || storedCode)
   }, [gameState?.lobbyCode])
 
+  useEffect(() => {
+    if (!socket) return
+
+    const handleRoundStarted = (roundNumber: number, prompt: string) => {
+      localStorage.setItem('cypher-round-prompt', JSON.stringify({ roundNumber, prompt }))
+      onNavigate('game')
+    }
+
+    socket.on('round-started', handleRoundStarted)
+
+    return () => {
+      socket.off('round-started', handleRoundStarted)
+    }
+  }, [socket, onNavigate])
+
   const handleStartGame = () => {
     if (socket?.connected) {
       socket.emit('start-game')

@@ -35,6 +35,18 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
   useEffect(() => {
     if (!socket) return
 
+    const savedPrompt = localStorage.getItem('cypher-round-prompt')
+    if (savedPrompt) {
+      try {
+        const parsed = JSON.parse(savedPrompt)
+        if (parsed?.prompt && !promptText) {
+          setPromptText(parsed.prompt)
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+
     socket.on('game-ended', (archive) => {
       console.log('Game ended:', archive)
       saveArchive(archive)
@@ -46,6 +58,7 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
       setPhase('writing')
       setHasSubmitted(false)
       setPromptText(prompt || '')
+      localStorage.setItem('cypher-round-prompt', JSON.stringify({ roundNumber, prompt: prompt || '' }))
       if (gameState?.settings?.timerEnabled) {
         reset(gameState.settings.timerSeconds || 60)
       } else {
