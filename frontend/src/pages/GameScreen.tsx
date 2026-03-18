@@ -78,6 +78,13 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
     }
   }, [socket, gameState?.settings?.timerEnabled, gameState?.settings?.timerSeconds, onNavigate, reset, stop])
 
+  useEffect(() => {
+    if (!socket) return
+    if (!gameState && socket.connected) {
+      socket.emit('request-state')
+    }
+  }, [socket, gameState])
+
   const handleTextSubmit = (text: string) => {
     submitText(text)
     setHasSubmitted(true)

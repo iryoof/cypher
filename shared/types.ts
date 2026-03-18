@@ -45,6 +45,7 @@ export interface SocketEvents {
   'create-lobby': (settings: GameSettings, nickname: string) => void;
   'ready-check': (playerId: string) => void;
   'submit-text': (text: string) => void;
+  'request-state': () => void;
   'start-game': () => void;
   'next-round': () => void;
   'end-game': () => void;

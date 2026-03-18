@@ -32,6 +32,23 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
       }
     })
 
+    // Request current state (for late joiners / page transitions)
+    socket.on('request-state', () => {
+      try {
+        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        if (!lobby) throw new Error('Lobby not found')
+
+        const state = lobby.getState()
+        socket.emit('state-update', state)
+        if (state.gameStarted && !state.gameEnded) {
+          const prompt = lobby.getPromptForPlayer(socket.id)
+          socket.emit('round-started', state.currentRound, prompt)
+        }
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
+    })
+
     // Submit Text
     socket.on('submit-text', (text: string) => {
       try {
