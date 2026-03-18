@@ -21,14 +21,7 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
     setLobbyCode(gameState?.lobbyCode || storedCode)
   }, [gameState?.lobbyCode])
 
-  useEffect(() => {
-    if (!gameState) {
-      const timer = setTimeout(() => {
-        onNavigate('menu')
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-  }, [gameState, onNavigate])
+  // If there's no active lobby, show a simple fallback instead of auto-redirecting
 
   useEffect(() => {
     if (!socket) return
@@ -50,6 +43,26 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
       socket.emit('start-game')
       onNavigate('game')
     }
+  }
+
+  if (!gameState) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
+        <div className="w-full max-w-md text-center space-y-4 bg-gray-900 rounded-lg p-8 border border-gray-800">
+          <h1 className="text-2xl font-bold">Keine aktive Lobby</h1>
+          <p className="text-gray-400 text-sm">Bitte trete einer Lobby bei oder erstelle eine neue.</p>
+          <button
+            onClick={() => {
+              clearSession()
+              onNavigate('menu')
+            }}
+            className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-bold transition"
+          >
+            Zurück zum Menü
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
