@@ -14,14 +14,16 @@ export default function LobbyScreen({ socket, onNavigate }: LobbyScreenProps) {
   const [joinCode, setJoinCode] = useState('')
   const [step, setStep] = useState<'menu' | 'join' | 'create'>('menu')
   const [localError, setLocalError] = useState('')
+  const [pendingNavigation, setPendingNavigation] = useState(false)
 
   useEffect(() => {
-    if (gameState) {
+    if (gameState && pendingNavigation) {
       // Successfully joined or created lobby
       setStep('menu')
+      setPendingNavigation(false)
       onNavigate('setup')
     }
-  }, [gameState, onNavigate])
+  }, [gameState, pendingNavigation, onNavigate])
 
   const handleCreateLobby = () => {
     if (!nickname.trim()) {
@@ -33,6 +35,7 @@ export default function LobbyScreen({ socket, onNavigate }: LobbyScreenProps) {
       return
     }
     setLocalError('')
+    setPendingNavigation(true)
     createLobby(nickname, 3, false, 60)
   }
 
@@ -50,6 +53,7 @@ export default function LobbyScreen({ socket, onNavigate }: LobbyScreenProps) {
       return
     }
     setLocalError('')
+    setPendingNavigation(true)
     joinLobby(joinCode.toUpperCase(), nickname)
   }
 
