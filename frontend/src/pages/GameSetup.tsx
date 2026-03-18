@@ -9,7 +9,7 @@ interface GameSetupProps {
 }
 
 export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
-  const { gameState, error, leaveLobby, closeLobby } = useGameSocket(socket)
+  const { gameState, error, leaveLobby, closeLobby, clearSession } = useGameSocket(socket)
   const [playerCount, setPlayerCount] = useState(3)
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
@@ -182,6 +182,7 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
               <button
                 onClick={() => {
                   closeLobby()
+                  clearSession()
                   onNavigate('menu')
                 }}
                 className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
@@ -192,6 +193,7 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
               <button
                 onClick={() => {
                   leaveLobby()
+                  clearSession()
                   onNavigate('menu')
                 }}
                 className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-bold transition"

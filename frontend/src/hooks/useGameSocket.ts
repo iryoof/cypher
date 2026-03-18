@@ -7,6 +7,15 @@ export function useGameSocket(socket: Socket | null) {
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
 
+  const clearSession = useCallback(() => {
+    setGameState(null)
+    setLoading(false)
+    setError('')
+    localStorage.removeItem('cypher-lobby-code')
+    localStorage.removeItem('cypher-game-state')
+    localStorage.removeItem('cypher-round-prompt')
+  }, [])
+
   // Listen to socket events
   useEffect(() => {
     if (!socket) return
@@ -47,6 +56,10 @@ export function useGameSocket(socket: Socket | null) {
       localStorage.setItem('cypher-game-state', JSON.stringify(state))
     })
 
+    socket.on('lobby-closed', () => {
+      clearSession()
+    })
+
     socket.on('error', (message: string) => {
       setError(message)
       console.error('Socket error:', message)
@@ -61,10 +74,11 @@ export function useGameSocket(socket: Socket | null) {
       socket.off('lobby-joined')
       socket.off('lobby-created')
       socket.off('state-update')
+      socket.off('lobby-closed')
       socket.off('error')
       socket.off('connect_error')
     }
-  }, [socket])
+  }, [socket, clearSession])
 
   const joinLobby = useCallback((code: string, nickname: string) => {
     if (!socket?.connected) {
@@ -125,6 +139,7 @@ export function useGameSocket(socket: Socket | null) {
     submitText,
     leaveLobby,
     closeLobby,
+    clearSession,
     startGame,
     socket
   }
