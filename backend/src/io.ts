@@ -4,6 +4,7 @@ import { GameManager } from './game/GameManager'
 export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager) {
   io.on('connection', (socket: Socket) => {
     console.log(`Client connected: ${socket.id}`)
+    socket.join(socket.id)
 
     // Join Lobby
     socket.on('join-lobby', (code: string, nickname: string) => {
@@ -80,6 +81,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
 
         lobby.getPlayers().forEach(player => {
           const prompt = lobby.getPromptForPlayer(player.id)
+          socket.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
           io.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
         })
 
@@ -102,6 +104,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         io.to(lobby.getCode()).emit('state-update', lobby.getState())
         lobby.getPlayers().forEach(player => {
           const prompt = lobby.getPromptForPlayer(player.id)
+          socket.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
           io.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
         })
       } catch (error: any) {
