@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Socket } from 'socket.io-client'
 import { PageType } from '../App'
 
@@ -11,6 +11,12 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
   const [playerCount, setPlayerCount] = useState(3)
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
+  const [lobbyCode, setLobbyCode] = useState('')
+
+  useEffect(() => {
+    const storedCode = localStorage.getItem('cypher-lobby-code') || ''
+    setLobbyCode(storedCode)
+  }, [])
 
   const handleStartGame = () => {
     if (socket?.connected) {
@@ -28,6 +34,24 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
         </div>
 
         <div className="bg-gray-900 rounded-lg p-8 space-y-6 border border-gray-800">
+          {/* Lobby Code */}
+          <div className="text-center space-y-2">
+            <p className="text-sm text-gray-400">Lobby-Code</p>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-3xl font-black tracking-widest text-purple-400">
+                {lobbyCode || '—'}
+              </span>
+              {lobbyCode && (
+                <button
+                  onClick={() => navigator.clipboard.writeText(lobbyCode)}
+                  className="px-3 py-1 text-xs rounded bg-gray-800 hover:bg-gray-700 transition"
+                >
+                  Kopieren
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">Teile den Code mit deinen Freunden</p>
+          </div>
           {/* Player Count */}
           <div>
             <label className="block text-sm font-semibold text-gray-300 mb-4">

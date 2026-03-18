@@ -14,16 +14,25 @@ export function useGameSocket(socket: Socket | null) {
     socket.on('lobby-joined', (state: GameState) => {
       setGameState(state)
       setLoading(false)
+      if (state?.lobbyCode) {
+        localStorage.setItem('cypher-lobby-code', state.lobbyCode)
+      }
     })
 
     socket.on('lobby-created', (code: string, state: GameState) => {
       console.log('Lobby created:', code)
       setGameState(state)
       setLoading(false)
+      if (code) {
+        localStorage.setItem('cypher-lobby-code', code)
+      }
     })
 
     socket.on('state-update', (state: GameState) => {
       setGameState(state)
+      if (state?.lobbyCode) {
+        localStorage.setItem('cypher-lobby-code', state.lobbyCode)
+      }
     })
 
     socket.on('error', (message: string) => {
