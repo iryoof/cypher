@@ -4,6 +4,7 @@ import { PageType } from '../App'
 import { useGameSocket } from '../hooks/useGameSocket'
 import { useTimer } from '../hooks/useTimer'
 import TextInput from '../components/TextInput'
+import TwoLineInput from '../components/TwoLineInput'
 import ReadyCheck from '../components/ReadyCheck'
 import Timer from '../components/Timer'
 
@@ -33,12 +34,14 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
   )
 
   useEffect(() => {
-    if (!socket?.connected) return
+    if (!socket) return
 
-    socket.on('text-received', (text: string, author: string) => {
+    socket.on('text-received', (text: string, author: string, senderId: string) => {
       setVisibleText(text)
       setPreviousAuthor(author)
-      setHasSubmitted(true)
+      if (senderId === socket.id) {
+        setHasSubmitted(true)
+      }
     })
 
     socket.on('ready-check-needed', () => {
@@ -53,7 +56,10 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
     socket.on('round-started', (roundNumber) => {
       setPhase('writing')
       setHasSubmitted(false)
-      setVisibleText('')
+      if (roundNumber === 1) {
+        setVisibleText('')
+        setPreviousAuthor('')
+      }
       console.log('Round started:', roundNumber)
     })
 
@@ -130,12 +136,21 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
                 )}
               </div>
 
-              <TextInput
-                onSubmit={handleTextSubmit}
-                maxLines={visibleText ? 1 : 2}
-                placeholder={visibleText ? 'Schreibe eine Zeile zum Reimen...' : 'Schreibe 2 Zeilen...'}
-                isDisabled={hasSubmitted}
-              />
+              {gameState.currentRound === 1 ? (
+                <TwoLineInput
+                  onSubmit={handleTextSubmit}
+                  isDisabled={hasSubmitted}
+                  placeholder1="Zeile 1..."
+                  placeholder2="Zeile 2..."
+                />
+              ) : (
+                <TextInput
+                  onSubmit={handleTextSubmit}
+                  maxLines={1}
+                  placeholder="Schreibe eine Zeile zum Reimen..."
+                  isDisabled={hasSubmitted}
+                />
+              )}
 
               {hasSubmitted && (
                 <div className="p-3 bg-green-900/30 border border-green-500 rounded-lg text-center font-semibold text-green-400">

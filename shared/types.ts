@@ -53,7 +53,7 @@ export interface SocketEvents {
   'lobby-created': (code: string, state: GameState) => void;
   'state-update': (state: GameState) => void;
   'round-started': (roundNumber: number) => void;
-  'text-received': (visibleText: string, previousAuthor: string) => void;
+  'text-received': (visibleText: string, previousAuthor: string, senderId: string) => void;
   'ready-check-needed': () => void;
   'game-ended': (archive: GameArchive) => void;
   'error': (message: string) => void;

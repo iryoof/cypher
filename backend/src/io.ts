@@ -39,7 +39,14 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
 
         const author = lobby.getPlayers().find(p => p.id === playerId)?.nickname || 'Unknown'
         lobby.submitText(playerId, text)
-        io.to(lobby.getCode()).emit('text-received', text, author)
+        io.to(lobby.getCode()).emit('text-received', text, author, playerId)
+
+        if (lobby.haveAllPlayersSubmitted()) {
+          lobby.resetReadyStatus()
+          lobby.nextRound()
+          io.to(lobby.getCode()).emit('state-update', lobby.getState())
+          io.to(lobby.getCode()).emit('round-started', lobby.getState().currentRound)
+        }
       } catch (error: any) {
         socket.emit('error', error.message)
       }
@@ -57,7 +64,10 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         io.to(lobby.getCode()).emit('state-update', lobby.getState())
 
         if (allReady) {
-          io.to(lobby.getCode()).emit('ready-check-needed')
+          lobby.resetReadyStatus()
+          lobby.nextRound()
+          io.to(lobby.getCode()).emit('state-update', lobby.getState())
+          io.to(lobby.getCode()).emit('round-started', lobby.getState().currentRound)
         }
       } catch (error: any) {
         socket.emit('error', error.message)

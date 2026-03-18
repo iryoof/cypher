@@ -9,6 +9,7 @@ export class Lobby {
   private currentRound: number = 0
   private settings: GameSettings
   private texts: Map<number, TextEntry[]> = new Map() // Round -> Texts
+  private submissionsByRound: Map<number, Set<string>> = new Map()
   private archiveId: string = uuidv4()
 
   constructor(code: string, hostId: string, hostNickname: string, settings: GameSettings) {
@@ -77,6 +78,7 @@ export class Lobby {
     }
     this.gameStarted = true
     this.currentRound = 1
+    this.submissionsByRound.set(this.currentRound, new Set())
   }
 
   submitText(playerId: string, text: string): void {
@@ -95,10 +97,22 @@ export class Lobby {
       this.texts.set(this.currentRound, [])
     }
     this.texts.get(this.currentRound)!.push(entry)
+
+    if (!this.submissionsByRound.has(this.currentRound)) {
+      this.submissionsByRound.set(this.currentRound, new Set())
+    }
+    this.submissionsByRound.get(this.currentRound)!.add(playerId)
   }
 
   nextRound(): void {
     this.currentRound++
+    this.submissionsByRound.set(this.currentRound, new Set())
+  }
+
+  haveAllPlayersSubmitted(): boolean {
+    const submissions = this.submissionsByRound.get(this.currentRound)
+    if (!submissions) return false
+    return submissions.size >= this.players.size
   }
 
   endGame(): GameArchive {
