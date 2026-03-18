@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Socket } from 'socket.io-client'
 import { PageType } from '../App'
+import { useGameSocket } from '../hooks/useGameSocket'
 
 interface GameSetupProps {
   socket: Socket | null
@@ -8,6 +9,7 @@ interface GameSetupProps {
 }
 
 export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
+  const { gameState, error } = useGameSocket(socket)
   const [playerCount, setPlayerCount] = useState(3)
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
@@ -15,8 +17,8 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
 
   useEffect(() => {
     const storedCode = localStorage.getItem('cypher-lobby-code') || ''
-    setLobbyCode(storedCode)
-  }, [])
+    setLobbyCode(gameState?.lobbyCode || storedCode)
+  }, [gameState?.lobbyCode])
 
   const handleStartGame = () => {
     if (socket?.connected) {
@@ -39,7 +41,7 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
             <p className="text-sm text-gray-400">Lobby-Code</p>
             <div className="flex items-center justify-center gap-2">
               <span className="text-3xl font-black tracking-widest text-purple-400">
-                {lobbyCode || '—'}
+                {lobbyCode || '-'}
               </span>
               {lobbyCode && (
                 <button
@@ -51,6 +53,30 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
               )}
             </div>
             <p className="text-xs text-gray-500">Teile den Code mit deinen Freunden</p>
+          </div>
+
+          {/* Player List */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-300">Spielerliste</h3>
+              <span className="text-xs text-gray-500">
+                {gameState?.players?.length || 0}/{gameState?.settings?.playerCount || playerCount}
+              </span>
+            </div>
+            {gameState?.players?.length ? (
+              <div className="grid grid-cols-1 gap-2">
+                {gameState.players.map(player => (
+                  <div
+                    key={player.id}
+                    className="px-3 py-2 rounded bg-gray-800 text-sm text-gray-200"
+                  >
+                    {player.nickname}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-500">Noch keine Spieler beigetreten.</div>
+            )}
           </div>
           {/* Player Count */}
           <div>
@@ -119,9 +145,15 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
 
           {/* Buttons */}
           <div className="space-y-3 pt-4">
+            {error && (
+              <div className="p-3 bg-red-900/30 border border-red-500 rounded-lg text-red-400 text-sm">
+                🚫 {error}
+              </div>
+            )}
             <button
               onClick={handleStartGame}
-              className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-lg font-bold transition transform hover:scale-105"
+              disabled={!gameState || (gameState?.players?.length || 0) < 3}
+              className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition transform hover:scale-105"
             >
               ▶️ Spiel starten
             </button>

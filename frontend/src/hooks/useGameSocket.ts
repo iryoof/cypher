@@ -9,7 +9,7 @@ export function useGameSocket(socket: Socket | null) {
 
   // Listen to socket events
   useEffect(() => {
-    if (!socket?.connected) return
+    if (!socket) return
 
     socket.on('lobby-joined', (state: GameState) => {
       setGameState(state)
@@ -40,11 +40,17 @@ export function useGameSocket(socket: Socket | null) {
       console.error('Socket error:', message)
     })
 
+    socket.on('connect_error', (err: Error) => {
+      setError('Verbindung zum Server fehlgeschlagen')
+      console.error('Connection error:', err)
+    })
+
     return () => {
       socket.off('lobby-joined')
       socket.off('lobby-created')
       socket.off('state-update')
       socket.off('error')
+      socket.off('connect_error')
     }
   }, [socket])
 
