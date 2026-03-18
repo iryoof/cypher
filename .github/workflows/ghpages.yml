@@ -29,7 +29,7 @@ jobs:
         run: node build.js
         env:
           GITHUB_PAGES: "true"
-          VITE_BACKEND_URL: "https://DEIN-BACKEND.example"
+          VITE_BACKEND_URL: "https://cypher-backend-ume8.onrender.com"
       - uses: actions/upload-pages-artifact@v4
         with:
           path: frontend/dist
