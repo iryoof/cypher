@@ -65,6 +65,44 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
       }
     })
 
+    // Leave Lobby (non-host)
+    socket.on('leave-lobby', () => {
+      try {
+        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        if (!lobby) throw new Error('Lobby not found')
+        if (lobby.getHostId() === socket.id) {
+          throw new Error('Host muss die Lobby schließen')
+        }
+
+        const code = lobby.getCode()
+        gameManager.removePlayer(socket.id)
+        socket.leave(code)
+
+        if (lobby.getPlayerCount() > 0) {
+          io.to(code).emit('state-update', lobby.getState())
+        }
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
+    })
+
+    // Close Lobby (host)
+    socket.on('close-lobby', () => {
+      try {
+        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        if (!lobby) throw new Error('Lobby not found')
+        if (lobby.getHostId() !== socket.id) {
+          throw new Error('Nur der Host kann die Lobby schließen')
+        }
+
+        const code = lobby.getCode()
+        io.to(code).emit('lobby-closed')
+        gameManager.removeLobby(code)
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
+    })
+
     // Ready Check
     socket.on('ready-check', (playerId: string) => {
       try {

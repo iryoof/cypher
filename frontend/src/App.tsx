@@ -40,7 +40,17 @@ function App() {
       console.log('❌ Disconnected from server')
     })
 
+    const handleLobbyClosed = () => {
+      localStorage.removeItem('cypher-lobby-code')
+      localStorage.removeItem('cypher-game-state')
+      localStorage.removeItem('cypher-round-prompt')
+      setAppState((prev: AppState) => ({ ...prev, currentPage: 'menu' }))
+    }
+
+    socket.on('lobby-closed', handleLobbyClosed)
+
     return () => {
+      socket.off('lobby-closed', handleLobbyClosed)
       socket.disconnect()
     }
   }, [])

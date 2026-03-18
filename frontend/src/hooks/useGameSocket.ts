@@ -92,6 +92,22 @@ export function useGameSocket(socket: Socket | null) {
     socket.emit('submit-text', text)
   }, [socket])
 
+  const leaveLobby = useCallback(() => {
+    if (!socket?.connected) {
+      setError('Nicht mit Server verbunden')
+      return
+    }
+    socket.emit('leave-lobby')
+  }, [socket])
+
+  const closeLobby = useCallback(() => {
+    if (!socket?.connected) {
+      setError('Nicht mit Server verbunden')
+      return
+    }
+    socket.emit('close-lobby')
+  }, [socket])
+
   const startGame = useCallback(() => {
     if (!socket?.connected) {
       setError('Nicht mit Server verbunden')
@@ -107,6 +123,8 @@ export function useGameSocket(socket: Socket | null) {
     joinLobby,
     createLobby,
     submitText,
+    leaveLobby,
+    closeLobby,
     startGame,
     socket
   }

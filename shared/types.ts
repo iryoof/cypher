@@ -46,6 +46,8 @@ export interface SocketEvents {
   'ready-check': (playerId: string) => void;
   'submit-text': (text: string) => void;
   'request-state': () => void;
+  'leave-lobby': () => void;
+  'close-lobby': () => void;
   'start-game': () => void;
   'next-round': () => void;
   'end-game': () => void;
@@ -57,6 +59,7 @@ export interface SocketEvents {
   'state-update': (state: GameState) => void;
   'round-started': (roundNumber: number, promptText: string) => void;
   'round-complete': (roundNumber: number) => void;
+  'lobby-closed': () => void;
   'game-ended': (archive: GameArchive) => void;
   'error': (message: string) => void;
 }

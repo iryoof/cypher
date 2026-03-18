@@ -9,7 +9,7 @@ interface GameSetupProps {
 }
 
 export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
-  const { gameState, error } = useGameSocket(socket)
+  const { gameState, error, leaveLobby, closeLobby } = useGameSocket(socket)
   const [playerCount, setPlayerCount] = useState(3)
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
@@ -177,6 +177,27 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
               <div className="text-xs text-gray-500 text-center">
                 Nur der Host kann das Spiel starten.
               </div>
+            )}
+            {isHost ? (
+              <button
+                onClick={() => {
+                  closeLobby()
+                  onNavigate('menu')
+                }}
+                className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
+              >
+                Lobby schließen
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  leaveLobby()
+                  onNavigate('menu')
+                }}
+                className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-bold transition"
+              >
+                Lobby verlassen
+              </button>
             )}
             <button
               onClick={() => onNavigate('menu')}
