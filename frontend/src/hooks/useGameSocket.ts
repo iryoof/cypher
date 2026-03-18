@@ -77,15 +77,7 @@ export function useGameSocket(socket: Socket | null) {
       setError('Nicht mit Server verbunden')
       return
     }
-    socket.emit('submit-text', socket.id, text)
-  }, [socket])
-
-  const setReady = useCallback(() => {
-    if (!socket?.connected) {
-      setError('Nicht mit Server verbunden')
-      return
-    }
-    socket.emit('ready-check', socket.id)
+    socket.emit('submit-text', text)
   }, [socket])
 
   const startGame = useCallback(() => {
@@ -103,7 +95,6 @@ export function useGameSocket(socket: Socket | null) {
     joinLobby,
     createLobby,
     submitText,
-    setReady,
     startGame,
     socket
   }

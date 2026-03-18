@@ -32,20 +32,15 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     })
 
     // Submit Text
-    socket.on('submit-text', (playerId: string, text: string) => {
+    socket.on('submit-text', (text: string) => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(playerId)
+        const lobby = gameManager.findLobbyByPlayerId(socket.id)
         if (!lobby) throw new Error('Lobby not found')
 
-        const author = lobby.getPlayers().find(p => p.id === playerId)?.nickname || 'Unknown'
-        lobby.submitText(playerId, text)
-        io.to(lobby.getCode()).emit('text-received', text, author, playerId)
+        lobby.submitText(socket.id, text)
 
         if (lobby.haveAllPlayersSubmitted()) {
-          lobby.resetReadyStatus()
-          lobby.nextRound()
-          io.to(lobby.getCode()).emit('state-update', lobby.getState())
-          io.to(lobby.getCode()).emit('round-started', lobby.getState().currentRound)
+          io.to(lobby.getCode()).emit('round-complete', lobby.getState().currentRound)
         }
       } catch (error: any) {
         socket.emit('error', error.message)
@@ -64,10 +59,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         io.to(lobby.getCode()).emit('state-update', lobby.getState())
 
         if (allReady) {
-          lobby.resetReadyStatus()
-          lobby.nextRound()
-          io.to(lobby.getCode()).emit('state-update', lobby.getState())
-          io.to(lobby.getCode()).emit('round-started', lobby.getState().currentRound)
+          io.to(lobby.getCode()).emit('round-complete', lobby.getState().currentRound)
         }
       } catch (error: any) {
         socket.emit('error', error.message)
@@ -79,10 +71,18 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
       try {
         const lobby = gameManager.findLobbyByPlayerId(socket.id)
         if (!lobby) throw new Error('Lobby not found')
+        if (lobby.getHostId() !== socket.id) {
+          throw new Error('Nur der Host kann das Spiel starten')
+        }
 
         lobby.startGame()
         io.to(lobby.getCode()).emit('state-update', lobby.getState())
-        io.to(lobby.getCode()).emit('round-started', lobby.getState().currentRound)
+
+        lobby.getPlayers().forEach(player => {
+          const prompt = lobby.getPromptForPlayer(player.id)
+          io.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
+        })
+
         console.log(`Game started: ${lobby.getCode()}`)
       } catch (error: any) {
         socket.emit('error', error.message)
@@ -91,12 +91,39 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
 
     // Next Round
     socket.on('next-round', () => {
-      console.log('Next round')
+      try {
+        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        if (!lobby) throw new Error('Lobby not found')
+        if (lobby.getHostId() !== socket.id) {
+          throw new Error('Nur der Host kann die naechste Runde starten')
+        }
+
+        lobby.nextRound()
+        io.to(lobby.getCode()).emit('state-update', lobby.getState())
+        lobby.getPlayers().forEach(player => {
+          const prompt = lobby.getPromptForPlayer(player.id)
+          io.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
+        })
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
     })
 
     // End Game
     socket.on('end-game', () => {
-      console.log('Game ended')
+      try {
+        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        if (!lobby) throw new Error('Lobby not found')
+        if (lobby.getHostId() !== socket.id) {
+          throw new Error('Nur der Host kann das Spiel beenden')
+        }
+
+        const archive = gameManager.archiveGame(lobby.getCode())
+        if (!archive) throw new Error('Archive failed')
+        io.to(lobby.getCode()).emit('game-ended', archive)
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
     })
 
     // Disconnect

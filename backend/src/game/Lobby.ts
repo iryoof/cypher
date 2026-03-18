@@ -4,17 +4,20 @@ import { Player, GameSettings, TextEntry, GameArchive } from 'shared/types'
 export class Lobby {
   private code: string
   private players: Map<string, Player> = new Map()
+  private playerOrder: string[] = []
+  private hostId: string
   private gameStarted: boolean = false
   private gameEnded: boolean = false
   private currentRound: number = 0
   private settings: GameSettings
-  private texts: Map<number, TextEntry[]> = new Map() // Round -> Texts
+  private sheets: Map<string, TextEntry[]> = new Map() // ownerId -> Texts
   private submissionsByRound: Map<number, Set<string>> = new Map()
   private archiveId: string = uuidv4()
 
   constructor(code: string, hostId: string, hostNickname: string, settings: GameSettings) {
     this.code = code
     this.settings = settings
+    this.hostId = hostId
 
     // Add host as first player
     const host: Player = {
@@ -23,6 +26,8 @@ export class Lobby {
       isReady: false
     }
     this.players.set(hostId, host)
+    this.playerOrder.push(hostId)
+    this.sheets.set(hostId, [])
   }
 
   // Public Methods
@@ -48,10 +53,16 @@ export class Lobby {
       isReady: false
     }
     this.players.set(playerId, player)
+    this.playerOrder.push(playerId)
+    if (!this.sheets.has(playerId)) {
+      this.sheets.set(playerId, [])
+    }
   }
 
   removePlayer(playerId: string): void {
     this.players.delete(playerId)
+    this.playerOrder = this.playerOrder.filter(id => id !== playerId)
+    this.sheets.delete(playerId)
   }
 
   setPlayerReady(playerId: string): void {
@@ -86,17 +97,30 @@ export class Lobby {
       throw new Error('Game not started')
     }
 
-    const entry: TextEntry = {
-      lineNumber: this.currentRound,
-      text,
-      author: this.players.get(playerId)?.nickname || 'Unknown',
-      timestamp: Date.now()
+    const sheetOwner = this.getAssignedSheetOwner(playerId, this.currentRound)
+    const sheet = this.sheets.get(sheetOwner)
+    if (!sheet) {
+      throw new Error('Sheet not found')
     }
 
-    if (!this.texts.has(this.currentRound)) {
-      this.texts.set(this.currentRound, [])
+    const author = this.players.get(playerId)?.nickname || 'Unknown'
+    const lines = this.currentRound === 1
+      ? text.split('\n').map(line => line.trim()).filter(Boolean)
+      : [text.trim()]
+
+    if (this.currentRound === 1 && lines.length < 2) {
+      throw new Error('Need two lines in first round')
     }
-    this.texts.get(this.currentRound)!.push(entry)
+
+    lines.slice(0, this.currentRound === 1 ? 2 : 1).forEach(lineText => {
+      const entry: TextEntry = {
+        lineNumber: sheet.length + 1,
+        text: lineText,
+        author,
+        timestamp: Date.now()
+      }
+      sheet.push(entry)
+    })
 
     if (!this.submissionsByRound.has(this.currentRound)) {
       this.submissionsByRound.set(this.currentRound, new Set())
@@ -105,6 +129,9 @@ export class Lobby {
   }
 
   nextRound(): void {
+    if (this.currentRound >= this.getMaxRounds()) {
+      throw new Error('Max rounds reached')
+    }
     this.currentRound++
     this.submissionsByRound.set(this.currentRound, new Set())
   }
@@ -115,12 +142,34 @@ export class Lobby {
     return submissions.size >= this.players.size
   }
 
+  getAssignedSheetOwner(playerId: string, roundNumber: number): string {
+    const order = this.playerOrder
+    const index = order.indexOf(playerId)
+    if (index === -1 || order.length === 0) {
+      throw new Error('Player not in lobby')
+    }
+    const offset = (roundNumber - 1) % order.length
+    const ownerIndex = (index + offset) % order.length
+    return order[ownerIndex]
+  }
+
+  getPromptForPlayer(playerId: string): string {
+    if (this.currentRound <= 1) return ''
+    const sheetOwner = this.getAssignedSheetOwner(playerId, this.currentRound)
+    const sheet = this.sheets.get(sheetOwner) || []
+    if (!sheet.length) return ''
+    return sheet[sheet.length - 1].text
+  }
+
   endGame(): GameArchive {
     this.gameEnded = true
 
     const finalTexts: string[] = []
-    this.texts.forEach((entries) => {
-      entries.forEach(entry => {
+    const rounds: TextEntry[][] = []
+    this.playerOrder.forEach(ownerId => {
+      const sheet = this.sheets.get(ownerId) || []
+      rounds.push(sheet)
+      sheet.forEach(entry => {
         finalTexts.push(`${entry.author}: ${entry.text}`)
       })
     })
@@ -130,7 +179,7 @@ export class Lobby {
       lobbyCode: this.code,
       date: new Date().toISOString(),
       players: Array.from(this.players.values()).map(p => p.nickname),
-      rounds: Array.from(this.texts.values()),
+      rounds,
       finalTexts
     }
 
@@ -141,11 +190,17 @@ export class Lobby {
     return {
       lobbyCode: this.code,
       players: Array.from(this.players.values()),
+      hostId: this.hostId,
       currentRound: this.currentRound,
+      maxRounds: this.getMaxRounds(),
       gameStarted: this.gameStarted,
       gameEnded: this.gameEnded,
       settings: this.settings
     }
+  }
+
+  getHostId(): string {
+    return this.hostId
   }
 
   getPlayers(): Player[] {
@@ -153,6 +208,10 @@ export class Lobby {
   }
 
   getPlayerCount(): number {
+    return this.players.size
+  }
+
+  getMaxRounds(): number {
     return this.players.size
   }
 

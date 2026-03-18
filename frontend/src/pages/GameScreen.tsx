@@ -5,71 +5,65 @@ import { useGameSocket } from '../hooks/useGameSocket'
 import { useTimer } from '../hooks/useTimer'
 import TextInput from '../components/TextInput'
 import TwoLineInput from '../components/TwoLineInput'
-import ReadyCheck from '../components/ReadyCheck'
 import Timer from '../components/Timer'
+import { saveArchive } from '../services/archiveService'
 
 interface GameScreenProps {
   socket: Socket | null
   onNavigate: (page: PageType) => void
 }
 
-type GamePhase = 'waiting' | 'writing' | 'ready-check' | 'finished'
+type GamePhase = 'waiting' | 'writing' | 'round-complete' | 'finished'
 
 export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
-  const { gameState, submitText, setReady, startGame } = useGameSocket(socket)
+  const { gameState, submitText, startGame } = useGameSocket(socket)
   const [phase, setPhase] = useState<GamePhase>('waiting')
   const [hasSubmitted, setHasSubmitted] = useState(false)
-  const [visibleText, setVisibleText] = useState<string>('')
-  const [previousAuthor, setPreviousAuthor] = useState<string>('')
+  const [promptText, setPromptText] = useState<string>('')
 
   const shouldRunTimer = phase === 'writing' && (gameState?.settings?.timerEnabled ?? false)
 
-  const { timeLeft, isRunning } = useTimer(
+  const { timeLeft, isRunning, reset, stop } = useTimer(
     gameState?.settings?.timerSeconds || 60,
     shouldRunTimer,
     () => {
       // Auto-submit when time is up
-      setPhase('ready-check')
+      setPhase('waiting')
     }
   )
 
   useEffect(() => {
     if (!socket) return
 
-    socket.on('text-received', (text: string, author: string, senderId: string) => {
-      setVisibleText(text)
-      setPreviousAuthor(author)
-      if (senderId === socket.id) {
-        setHasSubmitted(true)
-      }
-    })
-
-    socket.on('ready-check-needed', () => {
-      setPhase('ready-check')
-    })
-
     socket.on('game-ended', (archive) => {
       console.log('Game ended:', archive)
+      saveArchive(archive)
       setPhase('finished')
+      onNavigate('menu')
     })
 
-    socket.on('round-started', (roundNumber) => {
+    socket.on('round-started', (roundNumber, prompt) => {
       setPhase('writing')
       setHasSubmitted(false)
-      if (roundNumber === 1) {
-        setVisibleText('')
-        setPreviousAuthor('')
+      setPromptText(prompt || '')
+      if (gameState?.settings?.timerEnabled) {
+        reset(gameState.settings.timerSeconds || 60)
+      } else {
+        stop()
       }
       console.log('Round started:', roundNumber)
     })
 
+    socket.on('round-complete', () => {
+      setPhase('round-complete')
+    })
+
     return () => {
-      socket.off('text-received')
-      socket.off('ready-check-needed')
       socket.off('game-ended')
       socket.off('round-started')
+      socket.off('round-complete')
     }
-  }, [socket])
+  }, [socket, gameState?.settings?.timerEnabled, gameState?.settings?.timerSeconds, onNavigate, reset, stop])
 
   const handleTextSubmit = (text: string) => {
     submitText(text)
@@ -77,19 +71,21 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
     setPhase('waiting')
   }
 
-  const handleReady = () => {
-    setReady()
+  const handleNextRound = () => {
+    if (!socket?.connected) return
+    socket.emit('next-round')
   }
 
   const handlePlayAgain = () => {
     setPhase('writing')
     setHasSubmitted(false)
-    setVisibleText('')
+    setPromptText('')
     startGame()
   }
 
   const handleEndGame = () => {
-    onNavigate('menu')
+    if (!socket?.connected) return
+    socket.emit('end-game')
   }
 
   if (!gameState) {
@@ -129,9 +125,9 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
             <div className="space-y-4">
               <div className="text-center">
                 <h2 className="text-2xl font-bold mb-2">✍️ Schreibe deine Zeilen</h2>
-                {visibleText && previousAuthor && (
+                {promptText && (
                   <p className="text-gray-400">
-                    Du reimst auf: "<span className="text-purple-400">{visibleText}</span>" ({previousAuthor})
+                    Du reimst auf: "<span className="text-purple-400">{promptText}</span>"
                   </p>
                 )}
               </div>
@@ -147,7 +143,7 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
                 <TextInput
                   onSubmit={handleTextSubmit}
                   maxLines={1}
-                  placeholder="Schreibe eine Zeile zum Reimen..."
+                  placeholder="Schreibe eine Zeile..."
                   isDisabled={hasSubmitted}
                 />
               )}
@@ -160,12 +156,35 @@ export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
             </div>
           )}
 
-          {phase === 'ready-check' && (
-            <ReadyCheck
-              players={gameState.players}
-              currentPlayerId={socket?.id || ''}
-              onToggleReady={handleReady}
-            />
+          {phase === 'round-complete' && (
+            <div className="text-center space-y-4">
+              <h2 className="text-2xl font-bold text-purple-400">Runde beendet</h2>
+              {gameState.currentRound >= gameState.maxRounds ? (
+                <p className="text-gray-400">Letzte Runde abgeschlossen.</p>
+              ) : (
+                <p className="text-gray-400">Bereit für die nächste Runde?</p>
+              )}
+
+              {gameState.hostId === socket?.id ? (
+                <div className="space-y-2 pt-2">
+                  <button
+                    onClick={handleEndGame}
+                    className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
+                  >
+                    Beenden und Archivieren
+                  </button>
+                  <button
+                    onClick={handleNextRound}
+                    disabled={gameState.currentRound >= gameState.maxRounds}
+                    className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition"
+                  >
+                    Weiterspielen
+                  </button>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">Warte auf den Host...</div>
+              )}
+            </div>
           )}
 
           {phase === 'waiting' && (

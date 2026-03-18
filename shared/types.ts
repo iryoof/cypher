@@ -15,7 +15,9 @@ export interface GameSettings {
 export interface GameState {
   lobbyCode: string;
   players: Player[];
+  hostId: string;
   currentRound: number;
+  maxRounds: number;
   gameStarted: boolean;
   gameEnded: boolean;
   settings: GameSettings;
@@ -42,7 +44,7 @@ export interface SocketEvents {
   'join-lobby': (code: string, nickname: string) => void;
   'create-lobby': (settings: GameSettings, nickname: string) => void;
   'ready-check': (playerId: string) => void;
-  'submit-text': (playerId: string, text: string) => void;
+  'submit-text': (text: string) => void;
   'start-game': () => void;
   'next-round': () => void;
   'end-game': () => void;
@@ -52,9 +54,8 @@ export interface SocketEvents {
   'lobby-joined': (state: GameState) => void;
   'lobby-created': (code: string, state: GameState) => void;
   'state-update': (state: GameState) => void;
-  'round-started': (roundNumber: number) => void;
-  'text-received': (visibleText: string, previousAuthor: string, senderId: string) => void;
-  'ready-check-needed': () => void;
+  'round-started': (roundNumber: number, promptText: string) => void;
+  'round-complete': (roundNumber: number) => void;
   'game-ended': (archive: GameArchive) => void;
   'error': (message: string) => void;
 }

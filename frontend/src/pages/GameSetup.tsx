@@ -14,6 +14,7 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
   const [lobbyCode, setLobbyCode] = useState('')
+  const isHost = gameState?.hostId === socket?.id
 
   useEffect(() => {
     const storedCode = localStorage.getItem('cypher-lobby-code') || ''
@@ -152,11 +153,16 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
             )}
             <button
               onClick={handleStartGame}
-              disabled={!gameState || (gameState?.players?.length || 0) < 3}
+              disabled={!gameState || !isHost || (gameState?.players?.length || 0) < 3}
               className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition transform hover:scale-105"
             >
               ▶️ Spiel starten
             </button>
+            {!isHost && (
+              <div className="text-xs text-gray-500 text-center">
+                Nur der Host kann das Spiel starten.
+              </div>
+            )}
             <button
               onClick={() => onNavigate('menu')}
               className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-bold transition"
