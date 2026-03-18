@@ -22,6 +22,12 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
   }, [gameState?.lobbyCode])
 
   useEffect(() => {
+    if (!gameState) {
+      onNavigate('menu')
+    }
+  }, [gameState, onNavigate])
+
+  useEffect(() => {
     if (!socket) return
 
     const handleRoundStarted = (roundNumber: number, prompt: string) => {

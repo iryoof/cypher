@@ -63,6 +63,9 @@ export function useGameSocket(socket: Socket | null) {
     socket.on('error', (message: string) => {
       setError(message)
       console.error('Socket error:', message)
+      if (message.toLowerCase().includes('lobby not found') || message.toLowerCase().includes('lobby nicht gefunden')) {
+        clearSession()
+      }
     })
 
     socket.on('connect_error', (err: Error) => {
