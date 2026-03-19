@@ -22,6 +22,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [promptText, setPromptText] = useState<string>('')
   const hasRequestedState = useRef(false)
+  const lastRoundRef = useRef(0)
 
   const shouldRunTimer = phase === 'writing' && (gameState?.settings?.timerEnabled ?? false)
 
@@ -86,6 +87,22 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
     hasRequestedState.current = true
     socket.emit('request-state')
   }, [socket])
+
+  useEffect(() => {
+    if (!gameState || !gameState.gameStarted || gameState.gameEnded) return
+    if (gameState.currentRound < 1) return
+
+    if (gameState.currentRound !== lastRoundRef.current) {
+      lastRoundRef.current = gameState.currentRound
+      setHasSubmitted(false)
+      setPhase('writing')
+      return
+    }
+
+    if (!hasSubmitted && phase === 'waiting') {
+      setPhase('writing')
+    }
+  }, [gameState, hasSubmitted, phase])
 
   const handleTextSubmit = (text: string) => {
     submitText(text)
