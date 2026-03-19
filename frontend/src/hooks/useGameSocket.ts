@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Socket } from 'socket.io-client'
 import { GameState } from '../../../shared/types'
 
@@ -20,11 +20,13 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const gameStateRef = useRef<GameState | null>(null)
 
   const clearSession = useCallback(() => {
     setGameState(null)
     setLoading(false)
     setError('')
+    gameStateRef.current = null
     localStorage.removeItem('cypher-lobby-code')
     localStorage.removeItem('cypher-game-state')
     localStorage.removeItem('cypher-round-prompt')
@@ -36,6 +38,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
 
     socket.on('lobby-joined', (state: GameState) => {
       setGameState(state)
+      gameStateRef.current = state
       setLoading(false)
       if (state?.lobbyCode) {
         localStorage.setItem('cypher-lobby-code', state.lobbyCode)
@@ -45,6 +48,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
     socket.on('lobby-created', (code: string, state: GameState) => {
       console.log('Lobby created:', code)
       setGameState(state)
+      gameStateRef.current = state
       setLoading(false)
       if (code) {
         localStorage.setItem('cypher-lobby-code', code)
@@ -53,6 +57,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
 
     socket.on('state-update', (state: GameState) => {
       setGameState(state)
+      gameStateRef.current = state
       if (state?.lobbyCode) {
         localStorage.setItem('cypher-lobby-code', state.lobbyCode)
       }
@@ -66,7 +71,12 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       setError(message)
       console.error('Socket error:', message)
       if (message.toLowerCase().includes('lobby not found') || message.toLowerCase().includes('lobby nicht gefunden')) {
-        clearSession()
+        if (!gameStateRef.current) {
+          setGameState(null)
+          setLoading(false)
+          localStorage.removeItem('cypher-lobby-code')
+          localStorage.removeItem('cypher-round-prompt')
+        }
       }
     })
 
