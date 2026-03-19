@@ -20,22 +20,12 @@ export function useGameSocket(socket: Socket | null) {
   useEffect(() => {
     if (!socket) return
 
-    const savedState = localStorage.getItem('cypher-game-state')
-    if (savedState) {
-      try {
-        setGameState(JSON.parse(savedState))
-      } catch {
-        // ignore parse errors
-      }
-    }
-
     socket.on('lobby-joined', (state: GameState) => {
       setGameState(state)
       setLoading(false)
       if (state?.lobbyCode) {
         localStorage.setItem('cypher-lobby-code', state.lobbyCode)
       }
-      localStorage.setItem('cypher-game-state', JSON.stringify(state))
     })
 
     socket.on('lobby-created', (code: string, state: GameState) => {
@@ -45,7 +35,6 @@ export function useGameSocket(socket: Socket | null) {
       if (code) {
         localStorage.setItem('cypher-lobby-code', code)
       }
-      localStorage.setItem('cypher-game-state', JSON.stringify(state))
     })
 
     socket.on('state-update', (state: GameState) => {
@@ -53,7 +42,6 @@ export function useGameSocket(socket: Socket | null) {
       if (state?.lobbyCode) {
         localStorage.setItem('cypher-lobby-code', state.lobbyCode)
       }
-      localStorage.setItem('cypher-game-state', JSON.stringify(state))
     })
 
     socket.on('lobby-closed', () => {
