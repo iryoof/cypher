@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Socket } from 'socket.io-client'
 import { PageType } from '../App'
-import { useGameSocket } from '../hooks/useGameSocket'
+import type { GameSocketApi } from '../hooks/useGameSocket'
 
 interface LobbyScreenProps {
   socket: Socket | null
   onNavigate: (page: PageType) => void
+  game: GameSocketApi
 }
 
-export default function LobbyScreen({ socket, onNavigate }: LobbyScreenProps) {
-  const { gameState, error, loading, joinLobby, createLobby } = useGameSocket(socket)
+export default function LobbyScreen({ socket, onNavigate, game }: LobbyScreenProps) {
+  const { gameState, error, loading, joinLobby, createLobby } = game
   const [nickname, setNickname] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [step, setStep] = useState<'menu' | 'join' | 'create'>('menu')

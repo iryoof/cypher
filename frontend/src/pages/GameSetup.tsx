@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Socket } from 'socket.io-client'
 import { PageType } from '../App'
-import { useGameSocket } from '../hooks/useGameSocket'
+import type { GameSocketApi } from '../hooks/useGameSocket'
 
 interface GameSetupProps {
   socket: Socket | null
   onNavigate: (page: PageType) => void
+  game: GameSocketApi
 }
 
-export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
-  const { gameState, error, leaveLobby, closeLobby, clearSession } = useGameSocket(socket)
+export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) {
+  const { gameState, error, leaveLobby, closeLobby, clearSession, startGame } = game
   const [playerCount, setPlayerCount] = useState(3)
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
@@ -39,10 +40,8 @@ export default function GameSetup({ socket, onNavigate }: GameSetupProps) {
   }, [socket, onNavigate])
 
   const handleStartGame = () => {
-    if (socket?.connected) {
-      socket.emit('start-game')
-      onNavigate('game')
-    }
+    startGame()
+    onNavigate('game')
   }
 
   if (!gameState) {

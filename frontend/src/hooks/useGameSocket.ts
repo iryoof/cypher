@@ -2,7 +2,21 @@ import { useEffect, useState, useCallback } from 'react'
 import { Socket } from 'socket.io-client'
 import { GameState } from '../../../shared/types'
 
-export function useGameSocket(socket: Socket | null) {
+export interface GameSocketApi {
+  gameState: GameState | null
+  error: string
+  loading: boolean
+  joinLobby: (code: string, nickname: string) => void
+  createLobby: (nickname: string, playerCount: number, timerEnabled: boolean, timerSeconds: number) => void
+  submitText: (text: string) => void
+  leaveLobby: () => void
+  closeLobby: () => void
+  clearSession: () => void
+  startGame: () => void
+  socket: Socket | null
+}
+
+export function useGameSocket(socket: Socket | null): GameSocketApi {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)

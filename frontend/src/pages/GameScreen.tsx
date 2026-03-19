@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Socket } from 'socket.io-client'
 import { PageType } from '../App'
-import { useGameSocket } from '../hooks/useGameSocket'
+import type { GameSocketApi } from '../hooks/useGameSocket'
 import { useTimer } from '../hooks/useTimer'
 import TextInput from '../components/TextInput'
 import TwoLineInput from '../components/TwoLineInput'
@@ -11,12 +11,13 @@ import { saveArchive } from '../services/archiveService'
 interface GameScreenProps {
   socket: Socket | null
   onNavigate: (page: PageType) => void
+  game: GameSocketApi
 }
 
 type GamePhase = 'waiting' | 'writing' | 'round-complete' | 'finished'
 
-export default function GameScreen({ socket, onNavigate }: GameScreenProps) {
-  const { gameState, submitText, startGame } = useGameSocket(socket)
+export default function GameScreen({ socket, onNavigate, game }: GameScreenProps) {
+  const { gameState, submitText, startGame } = game
   const [phase, setPhase] = useState<GamePhase>('waiting')
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [promptText, setPromptText] = useState<string>('')

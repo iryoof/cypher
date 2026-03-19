@@ -4,6 +4,7 @@ import LobbyScreen from './pages/LobbyScreen'
 import GameScreen from './pages/GameScreen'
 import GameSetup from './pages/GameSetup'
 import ArchiveScreen from './pages/ArchiveScreen'
+import { useGameSocket } from './hooks/useGameSocket'
 import './styles/globals.css'
 
 export type PageType = 'menu' | 'lobby' | 'setup' | 'game' | 'archive'
@@ -20,6 +21,7 @@ function App() {
     socket: null,
     sessionId: null
   })
+  const game = useGameSocket(appState.socket)
 
   useEffect(() => {
     // Initialize Socket.io connection
@@ -67,13 +69,13 @@ function App() {
       {/* Main content */}
       <div className="relative z-10">
         {appState.currentPage === 'menu' && (
-          <LobbyScreen socket={appState.socket} onNavigate={navigateTo} />
+          <LobbyScreen socket={appState.socket} onNavigate={navigateTo} game={game} />
         )}
         {appState.currentPage === 'setup' && (
-          <GameSetup socket={appState.socket} onNavigate={navigateTo} />
+          <GameSetup socket={appState.socket} onNavigate={navigateTo} game={game} />
         )}
         {appState.currentPage === 'game' && (
-          <GameScreen socket={appState.socket} onNavigate={navigateTo} />
+          <GameScreen socket={appState.socket} onNavigate={navigateTo} game={game} />
         )}
         {appState.currentPage === 'archive' && (
           <ArchiveScreen onNavigate={navigateTo} />
