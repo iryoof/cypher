@@ -69,7 +69,7 @@ export default function ArchiveScreen({ onNavigate }: ArchiveScreenProps) {
                 <h3 className="font-bold text-purple-400 mb-3">📝 Texte:</h3>
                 <div className="bg-black/50 rounded-lg p-4 space-y-2 max-h-96 overflow-y-auto">
                   {selectedArchive.finalTexts.map((text, i) => (
-                    <div key={i} className="text-sm text-gray-300 leading-relaxed">
+                    <div key={i} className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
                       <span className="text-purple-400 font-semibold">{i + 1}.</span> {text}
                     </div>
                   ))}

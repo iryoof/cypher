@@ -176,9 +176,28 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
           throw new Error('Nur der Host kann das Spiel beenden')
         }
 
-        const archive = gameManager.archiveGame(lobby.getCode())
-        if (!archive) throw new Error('Archive failed')
-        io.to(lobby.getCode()).emit('game-ended', archive)
+        const options = lobby.startVoting()
+        io.to(lobby.getCode()).emit('voting-started', options)
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
+    })
+
+    // Submit Vote
+    socket.on('submit-vote', (textIndex: number) => {
+      try {
+        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        if (!lobby) throw new Error('Lobby not found')
+
+        lobby.submitVote(socket.id, textIndex)
+
+        if (lobby.haveAllPlayersVoted()) {
+          const results = lobby.getVotingResults()
+          const archive = lobby.getPendingArchive()
+          if (!archive) throw new Error('Archive failed')
+          io.to(lobby.getCode()).emit('voting-complete', archive, results)
+          gameManager.storeArchive(archive, lobby.getCode())
+        }
       } catch (error: any) {
         socket.emit('error', error.message)
       }

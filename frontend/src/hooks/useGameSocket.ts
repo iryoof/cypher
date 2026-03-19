@@ -9,6 +9,7 @@ export interface GameSocketApi {
   joinLobby: (code: string, nickname: string) => void
   createLobby: (nickname: string, playerCount: number, timerEnabled: boolean, timerSeconds: number) => void
   submitText: (text: string) => void
+  submitVote: (textIndex: number) => void
   leaveLobby: () => void
   closeLobby: () => void
   clearSession: () => void
@@ -121,6 +122,14 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
     socket.emit('submit-text', text)
   }, [socket])
 
+  const submitVote = useCallback((textIndex: number) => {
+    if (!socket?.connected) {
+      setError('Nicht mit Server verbunden')
+      return
+    }
+    socket.emit('submit-vote', textIndex)
+  }, [socket])
+
   const leaveLobby = useCallback(() => {
     if (!socket?.connected) {
       setError('Nicht mit Server verbunden')
@@ -152,6 +161,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
     joinLobby,
     createLobby,
     submitText,
+    submitVote,
     leaveLobby,
     closeLobby,
     clearSession,

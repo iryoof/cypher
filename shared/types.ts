@@ -17,7 +17,7 @@ export interface GameState {
   players: Player[];
   hostId: string;
   currentRound: number;
-  maxRounds: number;
+  maxRounds: number; // 0 = unlimited
   gameStarted: boolean;
   gameEnded: boolean;
   settings: GameSettings;
@@ -45,6 +45,7 @@ export interface SocketEvents {
   'create-lobby': (settings: GameSettings, nickname: string) => void;
   'ready-check': (playerId: string) => void;
   'submit-text': (text: string) => void;
+  'submit-vote': (textIndex: number) => void;
   'request-state': () => void;
   'leave-lobby': () => void;
   'close-lobby': () => void;
@@ -59,6 +60,8 @@ export interface SocketEvents {
   'state-update': (state: GameState) => void;
   'round-started': (roundNumber: number, promptText: string) => void;
   'round-complete': (roundNumber: number) => void;
+  'voting-started': (options: string[]) => void;
+  'voting-complete': (archive: GameArchive, results: number[]) => void;
   'lobby-closed': () => void;
   'game-ended': (archive: GameArchive) => void;
   'error': (message: string) => void;

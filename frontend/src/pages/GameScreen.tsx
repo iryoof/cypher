@@ -14,13 +14,16 @@ interface GameScreenProps {
   game: GameSocketApi
 }
 
-type GamePhase = 'waiting' | 'writing' | 'round-complete' | 'finished'
+type GamePhase = 'waiting' | 'writing' | 'round-complete' | 'voting' | 'voting-results' | 'finished'
 
 export default function GameScreen({ socket, onNavigate, game }: GameScreenProps) {
-  const { gameState, submitText, startGame } = game
+  const { gameState, submitText, submitVote, startGame, clearSession } = game
   const [phase, setPhase] = useState<GamePhase>('waiting')
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [promptText, setPromptText] = useState<string>('')
+  const [votingOptions, setVotingOptions] = useState<string[]>([])
+  const [voteResults, setVoteResults] = useState<number[]>([])
+  const [hasVoted, setHasVoted] = useState(false)
   const hasRequestedState = useRef(false)
   const lastRoundRef = useRef(0)
 
@@ -74,10 +77,26 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
       setPhase('round-complete')
     })
 
+    socket.on('voting-started', (options: string[]) => {
+      setVotingOptions(options || [])
+      setVoteResults([])
+      setHasVoted(false)
+      setPhase('voting')
+    })
+
+    socket.on('voting-complete', (archive, results: number[]) => {
+      saveArchive(archive)
+      setVotingOptions(archive?.finalTexts || [])
+      setVoteResults(results || [])
+      setPhase('voting-results')
+    })
+
     return () => {
       socket.off('game-ended')
       socket.off('round-started')
       socket.off('round-complete')
+      socket.off('voting-started')
+      socket.off('voting-complete')
     }
   }, [socket, gameState?.settings?.timerEnabled, gameState?.settings?.timerSeconds, onNavigate, reset, stop])
 
@@ -127,6 +146,12 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
     socket.emit('end-game')
   }
 
+  const handleVote = (index: number) => {
+    if (hasVoted) return
+    submitVote(index)
+    setHasVoted(true)
+  }
+
   if (!gameState) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -160,6 +185,68 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
 
         {/* Game Phases */}
         <div className="bg-gray-900 rounded-lg p-8 border border-gray-800 space-y-6">
+          {phase === 'voting' && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-purple-400">Besten Text wÃ¤hlen</h2>
+                <p className="text-gray-400 text-sm">Eine Stimme pro Spieler</p>
+              </div>
+              <div className="space-y-3">
+                {votingOptions.map((text, i) => (
+                  <div key={i} className="bg-black/40 border border-gray-800 rounded-lg p-4 space-y-3">
+                    <div className="text-sm text-gray-300 whitespace-pre-line">{text}</div>
+                    <button
+                      onClick={() => handleVote(i)}
+                      disabled={hasVoted}
+                      className="w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition"
+                    >
+                      DafÃ¼r stimmen
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {hasVoted && (
+                <div className="text-center text-sm text-gray-500">Danke! Warte auf die anderen Spieler...</div>
+              )}
+            </div>
+          )}
+
+          {phase === 'voting-results' && (
+            <div className="space-y-4">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-purple-400">Voting Ergebnis</h2>
+              </div>
+              <div className="space-y-3">
+                {votingOptions.map((text, i) => {
+                  const votes = voteResults[i] || 0
+                  const maxVotes = Math.max(0, ...voteResults)
+                  const isWinner = votes > 0 && votes === maxVotes
+                  return (
+                    <div
+                      key={i}
+                      className={`rounded-lg p-4 space-y-2 border ${
+                        isWinner ? 'border-green-500 bg-green-900/20' : 'border-gray-800 bg-black/40'
+                      }`}
+                    >
+                      <div className="text-sm text-gray-300 whitespace-pre-line">{text}</div>
+                      <div className={`text-sm font-semibold ${isWinner ? 'text-green-400' : 'text-gray-400'}`}>
+                        Stimmen: {votes}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <button
+                onClick={() => {
+                  clearSession()
+                  onNavigate('menu')
+                }}
+                className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-bold transition"
+              >
+                Zum MenÃ¼
+              </button>
+            </div>
+          )}
           {phase === 'writing' && (
             <div className="space-y-4">
               <div className="text-center">
@@ -198,7 +285,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
           {phase === 'round-complete' && (
             <div className="text-center space-y-4">
               <h2 className="text-2xl font-bold text-purple-400">Runde beendet</h2>
-              {gameState.currentRound >= gameState.maxRounds ? (
+              {gameState.maxRounds && gameState.maxRounds > 0 && gameState.currentRound >= gameState.maxRounds ? (
                 <p className="text-gray-400">Letzte Runde abgeschlossen.</p>
               ) : (
                 <p className="text-gray-400">Bereit für die nächste Runde?</p>
@@ -210,11 +297,11 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
                     onClick={handleEndGame}
                     className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
                   >
-                    Beenden und Archivieren
+                    Beenden & Abstimmen
                   </button>
                   <button
                     onClick={handleNextRound}
-                    disabled={gameState.currentRound >= gameState.maxRounds}
+                    disabled={!!gameState.maxRounds && gameState.maxRounds > 0 && gameState.currentRound >= gameState.maxRounds}
                     className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition"
                   >
                     Weiterspielen
@@ -253,7 +340,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
                   🎮 Nochmal spielen
                 </button>
                 <button
-                  onClick={handleEndGame}
+                  onClick={() => { clearSession(); onNavigate('menu') }}
                   className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-bold transition"
                 >
                   ← Zum Menü
@@ -285,3 +372,4 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
     </div>
   )
 }
+

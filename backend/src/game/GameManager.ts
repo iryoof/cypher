@@ -85,6 +85,12 @@ export class GameManager {
     return archive
   }
 
+  storeArchive(archive: GameArchive, lobbyCode: string): void {
+    this.archives.push(archive)
+    this.totalGamesPlayed++
+    this.removeLobby(lobbyCode)
+  }
+
   getArchives(): GameArchive[] {
     return this.archives
   }

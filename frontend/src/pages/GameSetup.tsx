@@ -11,7 +11,6 @@ interface GameSetupProps {
 
 export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) {
   const { gameState, error, loading, leaveLobby, closeLobby, clearSession, startGame } = game
-  const [playerCount, setPlayerCount] = useState(3)
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
   const [lobbyCode, setLobbyCode] = useState('')
@@ -116,7 +115,7 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-300">Spielerliste</h3>
               <span className="text-xs text-gray-500">
-                {gameState?.players?.length || 0}/{gameState?.settings?.playerCount || playerCount}
+                {gameState?.players?.length || 0} Spieler
               </span>
             </div>
             {gameState?.players?.length ? (
@@ -134,28 +133,6 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
               <div className="text-xs text-gray-500">Noch keine Spieler beigetreten.</div>
             )}
           </div>
-          {/* Player Count */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-4">
-              👥 Anzahl Spieler: <span className="text-purple-400 text-lg">{playerCount}</span>
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {[3, 4, 5, 6].map(num => (
-                <button
-                  key={num}
-                  onClick={() => setPlayerCount(num)}
-                  className={`py-3 rounded-lg font-bold transition transform hover:scale-105 ${
-                    playerCount === num
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600'
-                      : 'bg-gray-800 hover:bg-gray-700'
-                  }`}
-                >
-                  {num}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Timer Toggle */}
           <div className="space-y-3">
             <label className="flex items-center space-x-3 cursor-pointer">
@@ -195,7 +172,7 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
 
           {/* Summary */}
           <div className="bg-black/30 rounded p-4 text-sm text-gray-400 space-y-1">
-            <p>✓ {playerCount} Spieler</p>
+            <p>Mindestens 3 Spieler</p>
             <p>{timerEnabled ? `✓ Timer: ${timerSeconds}s` : '✓ Ohne Timer'}</p>
           </div>
 
@@ -253,3 +230,5 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
     </div>
   )
 }
+
+

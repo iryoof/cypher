@@ -12,7 +12,6 @@ export function validateNickname(nickname: string): boolean {
 export function validateGameSettings(playerCount: number, timerSeconds: number): boolean {
   return (
     playerCount >= 3 &&
-    playerCount <= 6 &&
     timerSeconds >= 60 &&
     timerSeconds <= 300
   )

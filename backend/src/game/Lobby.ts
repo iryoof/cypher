@@ -12,6 +12,10 @@ export class Lobby {
   private settings: GameSettings
   private sheets: Map<string, TextEntry[]> = new Map() // ownerId -> Texts
   private submissionsByRound: Map<number, Set<string>> = new Map()
+  private roundOffsets: Map<number, number> = new Map()
+  private votingActive: boolean = false
+  private votes: Map<string, number> = new Map()
+  private pendingArchive: GameArchive | null = null
   private archiveId: string = uuidv4()
 
   constructor(code: string, hostId: string, hostNickname: string, settings: GameSettings) {
@@ -40,9 +44,6 @@ export class Lobby {
   }
 
   addPlayer(playerId: string, nickname: string): void {
-    if (this.players.size >= this.settings.playerCount) {
-      throw new Error('Lobby is full')
-    }
     if (this.gameStarted) {
       throw new Error('Game already started')
     }
@@ -87,14 +88,23 @@ export class Lobby {
     if (this.players.size < 3) {
       throw new Error('Need at least 3 players')
     }
+    this.shufflePlayerOrder()
+    this.gameEnded = false
+    this.votingActive = false
+    this.votes.clear()
+    this.pendingArchive = null
     this.gameStarted = true
     this.currentRound = 1
     this.submissionsByRound.set(this.currentRound, new Set())
+    this.roundOffsets.set(this.currentRound, 0)
   }
 
   submitText(playerId: string, text: string): void {
     if (!this.gameStarted) {
       throw new Error('Game not started')
+    }
+    if (this.gameEnded) {
+      throw new Error('Game ended')
     }
 
     const sheetOwner = this.getAssignedSheetOwner(playerId, this.currentRound)
@@ -129,11 +139,12 @@ export class Lobby {
   }
 
   nextRound(): void {
-    if (this.currentRound >= this.getMaxRounds()) {
-      throw new Error('Max rounds reached')
+    if (this.gameEnded) {
+      throw new Error('Game ended')
     }
     this.currentRound++
     this.submissionsByRound.set(this.currentRound, new Set())
+    this.roundOffsets.set(this.currentRound, this.getRandomOffset())
   }
 
   haveAllPlayersSubmitted(): boolean {
@@ -148,7 +159,7 @@ export class Lobby {
     if (index === -1 || order.length === 0) {
       throw new Error('Player not in lobby')
     }
-    const offset = (roundNumber - 1) % order.length
+    const offset = this.getRoundOffset(roundNumber)
     const ownerIndex = (index + offset) % order.length
     return order[ownerIndex]
   }
@@ -163,15 +174,14 @@ export class Lobby {
 
   endGame(): GameArchive {
     this.gameEnded = true
+    this.votingActive = true
 
     const finalTexts: string[] = []
     const rounds: TextEntry[][] = []
     this.playerOrder.forEach(ownerId => {
       const sheet = this.sheets.get(ownerId) || []
       rounds.push(sheet)
-      sheet.forEach(entry => {
-        finalTexts.push(`${entry.author}: ${entry.text}`)
-      })
+      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
     })
 
     const archive: GameArchive = {
@@ -189,7 +199,7 @@ export class Lobby {
   getState() {
     return {
       lobbyCode: this.code,
-      players: Array.from(this.players.values()),
+      players: this.playerOrder.map(id => this.players.get(id)).filter(Boolean) as Player[],
       hostId: this.hostId,
       currentRound: this.currentRound,
       maxRounds: this.getMaxRounds(),
@@ -212,14 +222,75 @@ export class Lobby {
   }
 
   getMaxRounds(): number {
-    return this.players.size
+    return 0
   }
 
   isLobbyFull(): boolean {
-    return this.players.size >= this.settings.playerCount
+    return false
   }
 
   isEmpty(): boolean {
     return this.players.size === 0
+  }
+
+  startVoting(): string[] {
+    if (!this.pendingArchive) {
+      this.pendingArchive = this.endGame()
+    }
+    this.votingActive = true
+    this.votes.clear()
+    return this.pendingArchive.finalTexts
+  }
+
+  submitVote(playerId: string, textIndex: number): void {
+    if (!this.votingActive || !this.pendingArchive) {
+      throw new Error('Voting not active')
+    }
+    if (this.votes.has(playerId)) {
+      throw new Error('Vote already submitted')
+    }
+    if (textIndex < 0 || textIndex >= this.pendingArchive.finalTexts.length) {
+      throw new Error('Invalid vote')
+    }
+    this.votes.set(playerId, textIndex)
+  }
+
+  haveAllPlayersVoted(): boolean {
+    return this.votes.size >= this.players.size
+  }
+
+  getVotingResults(): number[] {
+    if (!this.pendingArchive) return []
+    const counts = new Array(this.pendingArchive.finalTexts.length).fill(0)
+    this.votes.forEach(index => {
+      counts[index] += 1
+    })
+    return counts
+  }
+
+  getPendingArchive(): GameArchive | null {
+    return this.pendingArchive
+  }
+
+  private shufflePlayerOrder(): void {
+    for (let i = this.playerOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[this.playerOrder[i], this.playerOrder[j]] = [this.playerOrder[j], this.playerOrder[i]]
+    }
+  }
+
+  private getRandomOffset(): number {
+    const count = this.playerOrder.length
+    if (count <= 1) return 0
+    return Math.floor(Math.random() * (count - 1)) + 1
+  }
+
+  private getRoundOffset(roundNumber: number): number {
+    if (roundNumber <= 1) return 0
+    const existing = this.roundOffsets.get(roundNumber)
+    if (existing !== undefined) return existing
+    const offset = this.getRandomOffset()
+    this.roundOffsets.set(roundNumber, offset)
+    return offset
   }
 }
