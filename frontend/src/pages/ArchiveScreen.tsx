@@ -30,6 +30,15 @@ export default function ArchiveScreen({ onNavigate }: ArchiveScreenProps) {
     setSelectedArchive(null)
   }
 
+  const handleClearAll = () => {
+    if (!archives.length) return
+    const confirmed = window.confirm('Willst du wirklich alle gespeicherten Spiele löschen?')
+    if (!confirmed) return
+    setArchives([])
+    localStorage.removeItem('cypher-archives')
+    setSelectedArchive(null)
+  }
+
   if (selectedArchive) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
@@ -106,6 +115,12 @@ export default function ArchiveScreen({ onNavigate }: ArchiveScreenProps) {
           </div>
         ) : (
           <div className="space-y-4">
+            <button
+              onClick={handleClearAll}
+              className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
+            >
+              🗑️ Alle löschen
+            </button>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {archives.map(archive => (
                 <div
