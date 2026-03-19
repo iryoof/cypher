@@ -12,7 +12,6 @@ export class Lobby {
   private settings: GameSettings
   private sheets: Map<string, TextEntry[]> = new Map() // ownerId -> Texts
   private submissionsByRound: Map<number, Set<string>> = new Map()
-  private roundOffsets: Map<number, number> = new Map()
   private votingActive: boolean = false
   private votes: Map<string, number> = new Map()
   private pendingArchive: GameArchive | null = null
@@ -96,7 +95,6 @@ export class Lobby {
     this.gameStarted = true
     this.currentRound = 1
     this.submissionsByRound.set(this.currentRound, new Set())
-    this.roundOffsets.set(this.currentRound, 0)
   }
 
   submitText(playerId: string, text: string): void {
@@ -144,7 +142,6 @@ export class Lobby {
     }
     this.currentRound++
     this.submissionsByRound.set(this.currentRound, new Set())
-    this.roundOffsets.set(this.currentRound, this.getRandomOffset())
   }
 
   haveAllPlayersSubmitted(): boolean {
@@ -159,7 +156,7 @@ export class Lobby {
     if (index === -1 || order.length === 0) {
       throw new Error('Player not in lobby')
     }
-    const offset = this.getRoundOffset(roundNumber)
+    const offset = (roundNumber - 1) % order.length
     const ownerIndex = (index + offset) % order.length
     return order[ownerIndex]
   }
@@ -279,18 +276,5 @@ export class Lobby {
     }
   }
 
-  private getRandomOffset(): number {
-    const count = this.playerOrder.length
-    if (count <= 1) return 0
-    return Math.floor(Math.random() * (count - 1)) + 1
-  }
-
-  private getRoundOffset(roundNumber: number): number {
-    if (roundNumber <= 1) return 0
-    const existing = this.roundOffsets.get(roundNumber)
-    if (existing !== undefined) return existing
-    const offset = this.getRandomOffset()
-    this.roundOffsets.set(roundNumber, offset)
-    return offset
-  }
+  // Passing order is fixed by the shuffled player order.
 }
