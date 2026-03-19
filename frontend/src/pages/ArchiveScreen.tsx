@@ -78,6 +78,31 @@ export default function ArchiveScreen({ onNavigate }: ArchiveScreenProps) {
             </div>
 
             <button
+              onClick={() => {
+                const lines = [
+                  'CYPHER Archiv',
+                  `Code: ${selectedArchive.lobbyCode}`,
+                  `Datum: ${new Date(selectedArchive.date).toLocaleString('de-DE')}`,
+                  `Spieler: ${selectedArchive.players.join(', ')}`,
+                  '',
+                  'Texte:',
+                  ...selectedArchive.finalTexts.map((text, i) => `${i + 1}. ${text}`)
+                ]
+                const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+                const url = URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = `cypher-archiv-${selectedArchive.lobbyCode}.txt`
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                URL.revokeObjectURL(url)
+              }}
+              className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-bold transition"
+            >
+              Als TXT herunterladen
+            </button>
+            <button
               onClick={() => handleDeleteArchive(selectedArchive.id)}
               className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
             >
