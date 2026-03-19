@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Socket } from 'socket.io-client'
 import { PageType } from '../App'
 import type { GameSocketApi } from '../hooks/useGameSocket'
@@ -10,12 +10,13 @@ interface GameSetupProps {
 }
 
 export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) {
-  const { gameState, error, leaveLobby, closeLobby, clearSession, startGame } = game
+  const { gameState, error, loading, leaveLobby, closeLobby, clearSession, startGame } = game
   const [playerCount, setPlayerCount] = useState(3)
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
   const [lobbyCode, setLobbyCode] = useState('')
   const isHost = gameState?.hostId === socket?.id
+  const hasRequestedState = useRef(false)
 
   useEffect(() => {
     const storedCode = localStorage.getItem('cypher-lobby-code') || ''
@@ -23,6 +24,13 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
   }, [gameState?.lobbyCode])
 
   // If there's no active lobby, show a simple fallback instead of auto-redirecting
+  useEffect(() => {
+    if (!socket?.connected) return
+    if (gameState) return
+    if (hasRequestedState.current) return
+    hasRequestedState.current = true
+    socket.emit('request-state')
+  }, [socket, gameState])
 
   useEffect(() => {
     if (!socket) return
@@ -48,8 +56,19 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
         <div className="w-full max-w-md text-center space-y-4 bg-gray-900 rounded-lg p-8 border border-gray-800">
-          <h1 className="text-2xl font-bold">Keine aktive Lobby</h1>
-          <p className="text-gray-400 text-sm">Bitte trete einer Lobby bei oder erstelle eine neue.</p>
+          <h1 className="text-2xl font-bold">
+            {loading ? 'Lobby wird geladen...' : 'Keine aktive Lobby'}
+          </h1>
+          <p className="text-gray-400 text-sm">
+            {loading
+              ? 'Einen Moment bitte â€“ wir holen den Status vom Server.'
+              : 'Bitte trete einer Lobby bei oder erstelle eine neue.'}
+          </p>
+          {error && (
+            <div className="p-3 bg-red-900/30 border border-red-500 rounded-lg text-red-400 text-sm">
+              ðŸš« {error}
+            </div>
+          )}
           <button
             onClick={() => {
               clearSession()
