@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Socket } from 'socket.io-client'
 import { PageType } from '../App'
 import type { GameSocketApi } from '../hooks/useGameSocket'
@@ -21,6 +21,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
   const [phase, setPhase] = useState<GamePhase>('waiting')
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [promptText, setPromptText] = useState<string>('')
+  const hasRequestedState = useRef(false)
 
   const shouldRunTimer = phase === 'writing' && (gameState?.settings?.timerEnabled ?? false)
 
@@ -80,11 +81,11 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
   }, [socket, gameState?.settings?.timerEnabled, gameState?.settings?.timerSeconds, onNavigate, reset, stop])
 
   useEffect(() => {
-    if (!socket) return
-    if (!gameState && socket.connected) {
-      socket.emit('request-state')
-    }
-  }, [socket, gameState])
+    if (!socket?.connected) return
+    if (hasRequestedState.current) return
+    hasRequestedState.current = true
+    socket.emit('request-state')
+  }, [socket])
 
   const handleTextSubmit = (text: string) => {
     submitText(text)
