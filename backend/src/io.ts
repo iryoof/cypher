@@ -7,9 +7,12 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     socket.join(socket.id)
 
     // Join Lobby
-    socket.on('join-lobby', (code: string, nickname: string) => {
+    socket.on('join-lobby', (code: string, nickname: string, playerId?: string) => {
       try {
-        const lobby = gameManager.joinLobby(socket.id, code, nickname)
+        const clientId = playerId || socket.id
+        socket.data.playerId = clientId
+        socket.join(clientId)
+        const lobby = gameManager.joinLobby(clientId, code, nickname)
         socket.join(code)
         socket.emit('lobby-joined', lobby.getState())
         io.to(code).emit('state-update', lobby.getState())
@@ -20,9 +23,12 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     })
 
     // Create Lobby
-    socket.on('create-lobby', (settings: any, nickname: string) => {
+    socket.on('create-lobby', (settings: any, nickname: string, playerId?: string) => {
       try {
-        const lobby = gameManager.createLobby(socket.id, nickname, settings)
+        const clientId = playerId || socket.id
+        socket.data.playerId = clientId
+        socket.join(clientId)
+        const lobby = gameManager.createLobby(clientId, nickname, settings)
         const code = lobby.getCode()
         socket.join(code)
         socket.emit('lobby-created', code, lobby.getState())
@@ -35,13 +41,14 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Request current state (for late joiners / page transitions)
     socket.on('request-state', () => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
 
         const state = lobby.getState()
         socket.emit('state-update', state)
         if (state.gameStarted && !state.gameEnded) {
-          const prompt = lobby.getPromptForPlayer(socket.id)
+          const prompt = lobby.getPromptForPlayer(playerId)
           socket.emit('round-started', state.currentRound, prompt)
         }
       } catch (error: any) {
@@ -52,12 +59,16 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Submit Text
     socket.on('submit-text', (text: string) => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
 
-        lobby.submitText(socket.id, text)
+        lobby.submitText(playerId, text)
 
         if (lobby.haveAllPlayersSubmitted()) {
+          const snapshot = lobby.buildArchiveSnapshot()
+          io.to(lobby.getCode()).emit('round-archived', snapshot)
+          gameManager.saveArchiveSnapshot(snapshot)
           io.to(lobby.getCode()).emit('round-complete', lobby.getState().currentRound)
         }
       } catch (error: any) {
@@ -68,15 +79,17 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Leave Lobby (non-host)
     socket.on('leave-lobby', () => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
-        if (lobby.getHostId() === socket.id) {
+        if (lobby.getHostId() === playerId) {
           throw new Error('Host muss die Lobby schließen')
         }
 
         const code = lobby.getCode()
-        gameManager.removePlayer(socket.id)
+        gameManager.removePlayer(playerId)
         socket.leave(code)
+        socket.leave(playerId)
 
         if (lobby.getPlayerCount() > 0) {
           io.to(code).emit('state-update', lobby.getState())
@@ -89,9 +102,10 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Close Lobby (host)
     socket.on('close-lobby', () => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
-        if (lobby.getHostId() !== socket.id) {
+        if (lobby.getHostId() !== playerId) {
           throw new Error('Nur der Host kann die Lobby schließen')
         }
 
@@ -106,10 +120,11 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Ready Check
     socket.on('ready-check', (playerId: string) => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(playerId)
+        const resolvedId = playerId || socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(resolvedId)
         if (!lobby) throw new Error('Lobby not found')
 
-        lobby.setPlayerReady(playerId)
+        lobby.setPlayerReady(resolvedId)
         const allReady = lobby.getAllPlayersReady()
 
         io.to(lobby.getCode()).emit('state-update', lobby.getState())
@@ -125,9 +140,10 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Start Game
     socket.on('start-game', () => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
-        if (lobby.getHostId() !== socket.id) {
+        if (lobby.getHostId() !== playerId) {
           throw new Error('Nur der Host kann das Spiel starten')
         }
 
@@ -136,7 +152,6 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
 
         lobby.getPlayers().forEach(player => {
           const prompt = lobby.getPromptForPlayer(player.id)
-          socket.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
           io.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
         })
 
@@ -149,9 +164,10 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Next Round
     socket.on('next-round', () => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
-        if (lobby.getHostId() !== socket.id) {
+        if (lobby.getHostId() !== playerId) {
           throw new Error('Nur der Host kann die naechste Runde starten')
         }
 
@@ -159,7 +175,6 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         io.to(lobby.getCode()).emit('state-update', lobby.getState())
         lobby.getPlayers().forEach(player => {
           const prompt = lobby.getPromptForPlayer(player.id)
-          socket.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
           io.to(player.id).emit('round-started', lobby.getState().currentRound, prompt)
         })
       } catch (error: any) {
@@ -170,9 +185,10 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // End Game
     socket.on('end-game', () => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
-        if (lobby.getHostId() !== socket.id) {
+        if (lobby.getHostId() !== playerId) {
           throw new Error('Nur der Host kann das Spiel beenden')
         }
 
@@ -186,10 +202,11 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Submit Vote
     socket.on('submit-vote', (textIndex: number) => {
       try {
-        const lobby = gameManager.findLobbyByPlayerId(socket.id)
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
 
-        lobby.submitVote(socket.id, textIndex)
+        lobby.submitVote(playerId, textIndex)
 
         if (lobby.haveAllPlayersVoted()) {
           const results = lobby.getVotingResults()
@@ -206,7 +223,6 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     // Disconnect
     socket.on('disconnect', () => {
       console.log(`Client disconnected: ${socket.id}`)
-      gameManager.removePlayer(socket.id)
     })
 
     socket.on('error', (error) => {

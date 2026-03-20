@@ -22,6 +22,7 @@ function App() {
     sessionId: null
   })
   const game = useGameSocket(appState.socket)
+  const { gameState } = game
 
   useEffect(() => {
     // Initialize Socket.io connection
@@ -36,6 +37,12 @@ function App() {
     socket.on('connect', () => {
       console.log('✅ Connected to server')
       setAppState((prev: AppState) => ({ ...prev, socket, sessionId: socket.id ?? null }))
+      const savedCode = localStorage.getItem('cypher-lobby-code')
+      const savedNickname = localStorage.getItem('cypher-nickname')
+      const savedPlayerId = localStorage.getItem('cypher-player-id')
+      if (savedCode && savedNickname && savedPlayerId) {
+        socket.emit('join-lobby', savedCode, savedNickname, savedPlayerId)
+      }
     })
 
     socket.on('disconnect', () => {
@@ -46,6 +53,8 @@ function App() {
       localStorage.removeItem('cypher-lobby-code')
       localStorage.removeItem('cypher-game-state')
       localStorage.removeItem('cypher-round-prompt')
+      localStorage.removeItem('cypher-nickname')
+      localStorage.removeItem('cypher-player-id')
       setAppState((prev: AppState) => ({ ...prev, currentPage: 'menu' }))
     }
 
@@ -56,6 +65,16 @@ function App() {
       socket.disconnect()
     }
   }, [])
+
+  useEffect(() => {
+    if (!gameState) return
+    if (appState.currentPage !== 'menu') return
+    if (gameState.gameStarted && !gameState.gameEnded) {
+      setAppState((prev: AppState) => ({ ...prev, currentPage: 'game' }))
+      return
+    }
+    setAppState((prev: AppState) => ({ ...prev, currentPage: 'setup' }))
+  }, [appState.currentPage, gameState])
 
   const navigateTo = (page: PageType) => {
     setAppState((prev: AppState) => ({ ...prev, currentPage: page }))

@@ -17,6 +17,19 @@ export interface GameSocketApi {
   socket: Socket | null
 }
 
+const PLAYER_ID_KEY = 'cypher-player-id'
+const NICKNAME_KEY = 'cypher-nickname'
+
+const getOrCreatePlayerId = () => {
+  const existing = localStorage.getItem(PLAYER_ID_KEY)
+  if (existing) return existing
+  const generated = (globalThis.crypto && 'randomUUID' in globalThis.crypto)
+    ? globalThis.crypto.randomUUID()
+    : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+  localStorage.setItem(PLAYER_ID_KEY, generated)
+  return generated
+}
+
 export function useGameSocket(socket: Socket | null): GameSocketApi {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [error, setError] = useState<string>('')
@@ -31,6 +44,8 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
     localStorage.removeItem('cypher-lobby-code')
     localStorage.removeItem('cypher-game-state')
     localStorage.removeItem('cypher-round-prompt')
+    localStorage.removeItem(PLAYER_ID_KEY)
+    localStorage.removeItem(NICKNAME_KEY)
   }, [])
 
   // Listen to socket events
@@ -77,6 +92,8 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
           setLoading(false)
           localStorage.removeItem('cypher-lobby-code')
           localStorage.removeItem('cypher-round-prompt')
+          localStorage.removeItem(PLAYER_ID_KEY)
+          localStorage.removeItem(NICKNAME_KEY)
         }
       }
     })
@@ -102,7 +119,9 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       return
     }
     setLoading(true)
-    socket.emit('join-lobby', code, nickname)
+    const playerId = getOrCreatePlayerId()
+    localStorage.setItem(NICKNAME_KEY, nickname)
+    socket.emit('join-lobby', code, nickname, playerId)
   }, [socket])
 
   const createLobby = useCallback((nickname: string, playerCount: number, timerEnabled: boolean, timerSeconds: number) => {
@@ -111,7 +130,9 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       return
     }
     setLoading(true)
-    socket.emit('create-lobby', { playerCount, timerEnabled, timerSeconds }, nickname)
+    const playerId = getOrCreatePlayerId()
+    localStorage.setItem(NICKNAME_KEY, nickname)
+    socket.emit('create-lobby', { playerCount, timerEnabled, timerSeconds }, nickname, playerId)
   }, [socket])
 
   const submitText = useCallback((text: string) => {

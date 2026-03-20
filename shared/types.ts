@@ -41,8 +41,8 @@ export interface GameArchive {
 
 export interface SocketEvents {
   // Client -> Server
-  'join-lobby': (code: string, nickname: string) => void;
-  'create-lobby': (settings: GameSettings, nickname: string) => void;
+  'join-lobby': (code: string, nickname: string, playerId?: string) => void;
+  'create-lobby': (settings: GameSettings, nickname: string, playerId?: string) => void;
   'ready-check': (playerId: string) => void;
   'submit-text': (text: string) => void;
   'submit-vote': (textIndex: number) => void;
@@ -60,6 +60,7 @@ export interface SocketEvents {
   'state-update': (state: GameState) => void;
   'round-started': (roundNumber: number, promptText: string) => void;
   'round-complete': (roundNumber: number) => void;
+  'round-archived': (archive: GameArchive) => void;
   'voting-started': (options: string[]) => void;
   'voting-complete': (archive: GameArchive, results: number[]) => void;
   'lobby-closed': () => void;

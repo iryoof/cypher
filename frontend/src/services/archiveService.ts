@@ -5,7 +5,12 @@ const ARCHIVES_KEY = 'cypher-archives'
 export function saveArchive(archive: GameArchive): void {
   try {
     const archives = getArchives()
-    archives.push(archive)
+    const index = archives.findIndex(item => item.id === archive.id)
+    if (index >= 0) {
+      archives[index] = archive
+    } else {
+      archives.push(archive)
+    }
     localStorage.setItem(ARCHIVES_KEY, JSON.stringify(archives))
     console.log('📁 Archive saved:', archive.id)
   } catch (error) {

@@ -77,6 +77,10 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
       setPhase('round-complete')
     })
 
+    socket.on('round-archived', (archive) => {
+      saveArchive(archive)
+    })
+
     socket.on('voting-started', (options: string[]) => {
       setVotingOptions(options || [])
       setVoteResults([])
@@ -95,6 +99,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
       socket.off('game-ended')
       socket.off('round-started')
       socket.off('round-complete')
+      socket.off('round-archived')
       socket.off('voting-started')
       socket.off('voting-complete')
     }

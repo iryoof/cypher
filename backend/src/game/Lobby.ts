@@ -16,6 +16,7 @@ export class Lobby {
   private votes: Map<string, number> = new Map()
   private pendingArchive: GameArchive | null = null
   private archiveId: string = uuidv4()
+  private archiveDate: string = new Date().toISOString()
 
   constructor(code: string, hostId: string, hostNickname: string, settings: GameSettings) {
     this.code = code
@@ -56,6 +57,17 @@ export class Lobby {
     this.playerOrder.push(playerId)
     if (!this.sheets.has(playerId)) {
       this.sheets.set(playerId, [])
+    }
+  }
+
+  hasPlayer(playerId: string): boolean {
+    return this.players.has(playerId)
+  }
+
+  updatePlayerNickname(playerId: string, nickname: string): void {
+    const player = this.players.get(playerId)
+    if (player) {
+      player.nickname = nickname
     }
   }
 
@@ -184,13 +196,33 @@ export class Lobby {
     const archive: GameArchive = {
       id: this.archiveId,
       lobbyCode: this.code,
-      date: new Date().toISOString(),
+      date: this.archiveDate,
       players: Array.from(this.players.values()).map(p => p.nickname),
       rounds,
       finalTexts
     }
 
     return archive
+  }
+
+  buildArchiveSnapshot(): GameArchive {
+    const finalTexts: string[] = []
+    const rounds: TextEntry[][] = []
+
+    this.playerOrder.forEach(ownerId => {
+      const sheet = this.sheets.get(ownerId) || []
+      rounds.push(sheet)
+      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
+    })
+
+    return {
+      id: this.archiveId,
+      lobbyCode: this.code,
+      date: this.archiveDate,
+      players: Array.from(this.players.values()).map(p => p.nickname),
+      rounds,
+      finalTexts
+    }
   }
 
   getState() {

@@ -25,7 +25,13 @@ export class GameManager {
   }
 
   joinLobby(playerId: string, code: string, nickname: string): Lobby {
-    const lobby = this.lobbies.get(code.toUpperCase())
+    const normalizedCode = code.toUpperCase()
+    const existingCode = this.playerLobbies.get(playerId)
+    if (existingCode && existingCode !== normalizedCode) {
+      throw new Error('Player already in another lobby')
+    }
+
+    const lobby = this.lobbies.get(normalizedCode)
     if (!lobby) {
       throw new Error(`Lobby ${code} not found`)
     }
@@ -34,13 +40,16 @@ export class GameManager {
       throw new Error('Lobby is full')
     }
 
-    lobby.addPlayer(playerId, nickname)
-    this.playerLobbies.set(playerId, code.toUpperCase())
+    if (lobby.hasPlayer(playerId)) {
+      lobby.updatePlayerNickname(playerId, nickname)
+    } else {
+      lobby.addPlayer(playerId, nickname)
+    }
+    this.playerLobbies.set(playerId, normalizedCode)
 
     console.log(`📍 Player ${nickname} joined lobby ${code}`)
     return lobby
   }
-
   findLobbyByPlayerId(playerId: string): Lobby | null {
     const code = this.playerLobbies.get(playerId)
     if (!code) return null
@@ -78,7 +87,7 @@ export class GameManager {
     if (!lobby) return null
 
     const archive = lobby.endGame()
-    this.archives.push(archive)
+    this.upsertArchive(archive)
     this.totalGamesPlayed++
 
     this.removeLobby(lobbyCode)
@@ -86,9 +95,13 @@ export class GameManager {
   }
 
   storeArchive(archive: GameArchive, lobbyCode: string): void {
-    this.archives.push(archive)
+    this.upsertArchive(archive)
     this.totalGamesPlayed++
     this.removeLobby(lobbyCode)
+  }
+
+  saveArchiveSnapshot(archive: GameArchive): void {
+    this.upsertArchive(archive)
   }
 
   getArchives(): GameArchive[] {
@@ -106,5 +119,14 @@ export class GameManager {
   private generateLobbyCode(): string {
     // Helper to generate new codes
     return Math.random().toString(36).substring(2, 8).toUpperCase()
+  }
+
+  private upsertArchive(archive: GameArchive): void {
+    const index = this.archives.findIndex(item => item.id === archive.id)
+    if (index >= 0) {
+      this.archives[index] = archive
+    } else {
+      this.archives.push(archive)
+    }
   }
 }
