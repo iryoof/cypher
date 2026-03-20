@@ -200,7 +200,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
                       disabled={hasVoted}
                       className="w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition"
                     >
-                      DafÃ¼r stimmen
+                      Abstimmen
                     </button>
                   </div>
                 ))}

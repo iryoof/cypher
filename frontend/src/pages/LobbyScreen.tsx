@@ -59,7 +59,7 @@ export default function LobbyScreen({ socket, onNavigate, game }: LobbyScreenPro
   const [step, setStep] = useState<'menu' | 'join' | 'create'>('menu')
   const [localError, setLocalError] = useState('')
   const [pendingNavigation, setPendingNavigation] = useState(false)
-  const splashMessages = getDailySplashMessages(3)
+  const splashMessage = getDailySplashMessages(1)[0]
 
   useEffect(() => {
     if (gameState && pendingNavigation) {
@@ -114,17 +114,16 @@ export default function LobbyScreen({ socket, onNavigate, game }: LobbyScreenPro
             CYPHER
           </h2>
           <p className="text-gray-400 mb-2">Digitales Reimspiel</p>
-          <div className="mb-3 space-y-1">
-            {splashMessages.map((message, index) => (
+          {splashMessage && (
+            <div className="mb-3">
               <p
-                key={index}
                 className="text-xs text-yellow-300 italic inline-block"
                 style={{ transform: 'rotate(-12deg)', transformOrigin: 'left center' }}
               >
-                {message}
+                {splashMessage}
               </p>
-            ))}
-          </div>
+            </div>
+          )}
           {!socket?.connected && (
             <p className="text-red-400 text-sm">⚠️ Server-Verbindung wird hergestellt...</p>
           )}
