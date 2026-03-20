@@ -3,6 +3,49 @@ import { Socket } from 'socket.io-client'
 import { PageType } from '../App'
 import type { GameSocketApi } from '../hooks/useGameSocket'
 
+const SPLASH_MESSAGES = [
+  'Ey Nico kennst du jemanden der Tin heißt?',
+  'Bdonis',
+  'Warum liegt auf Antons Kopf Stroh?',
+  'Noah wie steht der Hunger'
+]
+
+const getLocalDateKey = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const hashString = (input: string) => {
+  let hash = 0
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+const seededRandom = (seed: number) => {
+  let value = seed
+  return () => {
+    value = (value * 1664525 + 1013904223) % 4294967296
+    return value / 4294967296
+  }
+}
+
+const getDailySplashMessages = (count: number) => {
+  const seed = hashString(getLocalDateKey())
+  const rng = seededRandom(seed)
+  const shuffled = [...SPLASH_MESSAGES]
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled.slice(0, Math.min(count, shuffled.length))
+}
+
 interface LobbyScreenProps {
   socket: Socket | null
   onNavigate: (page: PageType) => void
@@ -16,6 +59,7 @@ export default function LobbyScreen({ socket, onNavigate, game }: LobbyScreenPro
   const [step, setStep] = useState<'menu' | 'join' | 'create'>('menu')
   const [localError, setLocalError] = useState('')
   const [pendingNavigation, setPendingNavigation] = useState(false)
+  const splashMessages = getDailySplashMessages(3)
 
   useEffect(() => {
     if (gameState && pendingNavigation) {
@@ -70,6 +114,13 @@ export default function LobbyScreen({ socket, onNavigate, game }: LobbyScreenPro
             CYPHER
           </h2>
           <p className="text-gray-400 mb-2">Digitales Reimspiel</p>
+          <div className="mb-3 space-y-1">
+            {splashMessages.map((message, index) => (
+              <p key={index} className="text-xs text-yellow-300 italic">
+                {message}
+              </p>
+            ))}
+          </div>
           {!socket?.connected && (
             <p className="text-red-400 text-sm">⚠️ Server-Verbindung wird hergestellt...</p>
           )}
