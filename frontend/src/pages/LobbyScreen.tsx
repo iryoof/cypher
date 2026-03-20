@@ -110,19 +110,16 @@ export default function LobbyScreen({ socket, onNavigate, game }: LobbyScreenPro
         {/* Logo */}
         <div className="text-center mb-12">
           <h1 className="text-7xl font-bold mb-3 tracking-widest">🎤</h1>
-          <div className="relative inline-block mb-2">
-            <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-pink-500">
-              CYPHER
-            </h2>
-            {splashMessage && (
-              <span
-                className="absolute left-full top-1/2 ml-3 text-xs text-yellow-300 italic whitespace-nowrap"
-                style={{ transform: 'translateY(-50%) rotate(-12deg)', transformOrigin: 'left center' }}
-              >
+          <h2 className="text-5xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-pink-500">
+            CYPHER
+          </h2>
+          {splashMessage && (
+            <div className="mb-2">
+              <p className="text-xs text-yellow-300 italic">
                 {splashMessage}
-              </span>
-            )}
-          </div>
+              </p>
+            </div>
+          )}
           <p className="text-gray-400 mb-2">Digitales Reimspiel</p>
           {!socket?.connected && (
             <p className="text-red-400 text-sm">⚠️ Server-Verbindung wird hergestellt...</p>
