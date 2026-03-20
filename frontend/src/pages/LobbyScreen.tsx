@@ -116,7 +116,11 @@ export default function LobbyScreen({ socket, onNavigate, game }: LobbyScreenPro
           <p className="text-gray-400 mb-2">Digitales Reimspiel</p>
           <div className="mb-3 space-y-1">
             {splashMessages.map((message, index) => (
-              <p key={index} className="text-xs text-yellow-300 italic">
+              <p
+                key={index}
+                className="text-xs text-yellow-300 italic inline-block"
+                style={{ transform: 'rotate(-12deg)', transformOrigin: 'left center' }}
+              >
                 {message}
               </p>
             ))}
