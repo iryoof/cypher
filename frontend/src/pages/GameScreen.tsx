@@ -26,6 +26,8 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
   const [hasVoted, setHasVoted] = useState(false)
   const hasRequestedState = useRef(false)
   const lastRoundRef = useRef(0)
+  const storedPlayerId = typeof window !== 'undefined' ? localStorage.getItem('cypher-player-id') : null
+  const isHost = gameState?.hostId === (storedPlayerId || socket?.id)
 
   const shouldRunTimer = phase === 'writing' && (gameState?.settings?.timerEnabled ?? false)
 
@@ -296,7 +298,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
                 <p className="text-gray-400">Bereit für die nächste Runde?</p>
               )}
 
-              {gameState.hostId === socket?.id ? (
+              {isHost ? (
                 <div className="space-y-2 pt-2">
                   <button
                     onClick={handleEndGame}

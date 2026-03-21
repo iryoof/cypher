@@ -14,7 +14,8 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
   const [lobbyCode, setLobbyCode] = useState('')
-  const isHost = gameState?.hostId === socket?.id
+  const storedPlayerId = typeof window !== 'undefined' ? localStorage.getItem('cypher-player-id') : null
+  const isHost = gameState?.hostId === (storedPlayerId || socket?.id)
   const hasRequestedState = useRef(false)
 
   useEffect(() => {
