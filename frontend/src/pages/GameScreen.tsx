@@ -171,6 +171,14 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
+      {isHost && (
+        <button
+          onClick={handleEndGame}
+          className="fixed top-4 left-4 z-20 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-xs font-bold uppercase tracking-wide shadow-lg"
+        >
+          Spiel beenden
+        </button>
+      )}
       <div className="w-full max-w-2xl space-y-6">
         {/* Header */}
         <div className="text-center">
