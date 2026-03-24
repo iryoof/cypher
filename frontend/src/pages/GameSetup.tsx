@@ -49,7 +49,6 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
 
   const handleStartGame = () => {
     startGame()
-    onNavigate('game')
   }
 
   if (!gameState) {
