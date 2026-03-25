@@ -301,6 +301,13 @@ export class Lobby {
     return this.pendingArchive
   }
 
+  getOrCreatePendingArchive(): GameArchive {
+    if (!this.pendingArchive) {
+      this.pendingArchive = this.endGame()
+    }
+    return this.pendingArchive
+  }
+
   private shufflePlayerOrder(): void {
     for (let i = this.playerOrder.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))

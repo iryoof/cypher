@@ -46,6 +46,7 @@ export interface SocketEvents {
   'ready-check': (playerId: string) => void;
   'submit-text': (text: string) => void;
   'submit-vote': (textIndex: number) => void;
+  'skip-voting': () => void;
   'request-state': () => void;
   'leave-lobby': () => void;
   'close-lobby': () => void;

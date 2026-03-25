@@ -220,6 +220,25 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
       }
     })
 
+    // Skip Voting (host)
+    socket.on('skip-voting', () => {
+      try {
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
+        if (!lobby) throw new Error('Lobby not found')
+        if (lobby.getHostId() !== playerId) {
+          throw new Error('Nur der Host kann das Voting überspringen')
+        }
+
+        const archive = lobby.getOrCreatePendingArchive()
+        const results = lobby.getVotingResults()
+        io.to(lobby.getCode()).emit('voting-complete', archive, results)
+        gameManager.storeArchive(archive, lobby.getCode())
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
+    })
+
     // Disconnect
     socket.on('disconnect', () => {
       console.log(`Client disconnected: ${socket.id}`)

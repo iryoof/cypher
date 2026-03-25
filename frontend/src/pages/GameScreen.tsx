@@ -159,6 +159,11 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
     setHasVoted(true)
   }
 
+  const handleSkipVoting = () => {
+    if (!socket?.connected) return
+    socket.emit('skip-voting')
+  }
+
   if (!gameState) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -222,6 +227,14 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
               </div>
               {hasVoted && (
                 <div className="text-center text-sm text-gray-500">Danke! Warte auf die anderen Spieler...</div>
+              )}
+              {isHost && (
+                <button
+                  onClick={handleSkipVoting}
+                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
+                >
+                  Voting Ã¼berspringen
+                </button>
               )}
             </div>
           )}
