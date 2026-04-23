@@ -19,14 +19,21 @@ export interface GameSocketApi {
 
 const PLAYER_ID_KEY = 'cypher-player-id'
 const NICKNAME_KEY = 'cypher-nickname'
+const LOBBY_CODE_KEY = 'cypher-lobby-code'
+const GAME_STATE_KEY = 'cypher-game-state'
+const ROUND_PROMPT_KEY = 'cypher-round-prompt'
 
 const getOrCreatePlayerId = () => {
-  const existing = localStorage.getItem(PLAYER_ID_KEY)
+  // Use sessionStorage so each browser tab gets its own identity. localStorage
+  // would be shared across tabs, which breaks multi-instance testing (every
+  // tab would reuse the same player id and the backend would treat them as a
+  // single player).
+  const existing = sessionStorage.getItem(PLAYER_ID_KEY)
   if (existing) return existing
   const generated = (globalThis.crypto && 'randomUUID' in globalThis.crypto)
     ? globalThis.crypto.randomUUID()
     : `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
-  localStorage.setItem(PLAYER_ID_KEY, generated)
+  sessionStorage.setItem(PLAYER_ID_KEY, generated)
   return generated
 }
 
@@ -41,10 +48,10 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
     setLoading(false)
     setError('')
     gameStateRef.current = null
-    localStorage.removeItem('cypher-lobby-code')
-    localStorage.removeItem('cypher-game-state')
-    localStorage.removeItem('cypher-round-prompt')
-    localStorage.removeItem(PLAYER_ID_KEY)
+    sessionStorage.removeItem(LOBBY_CODE_KEY)
+    sessionStorage.removeItem(GAME_STATE_KEY)
+    sessionStorage.removeItem(ROUND_PROMPT_KEY)
+    sessionStorage.removeItem(PLAYER_ID_KEY)
     localStorage.removeItem(NICKNAME_KEY)
   }, [])
 
@@ -58,7 +65,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       gameStateRef.current = state
       setLoading(false)
       if (state?.lobbyCode) {
-        localStorage.setItem('cypher-lobby-code', state.lobbyCode)
+        sessionStorage.setItem(LOBBY_CODE_KEY, state.lobbyCode)
       }
     })
 
@@ -69,7 +76,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       gameStateRef.current = state
       setLoading(false)
       if (code) {
-        localStorage.setItem('cypher-lobby-code', code)
+        sessionStorage.setItem(LOBBY_CODE_KEY, code)
       }
     })
 
@@ -79,7 +86,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       gameStateRef.current = state
       setLoading(false)
       if (state?.lobbyCode) {
-        localStorage.setItem('cypher-lobby-code', state.lobbyCode)
+        sessionStorage.setItem(LOBBY_CODE_KEY, state.lobbyCode)
       }
     })
 
@@ -95,9 +102,9 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
         if (!gameStateRef.current) {
           setGameState(null)
           setLoading(false)
-          localStorage.removeItem('cypher-lobby-code')
-          localStorage.removeItem('cypher-round-prompt')
-          localStorage.removeItem(PLAYER_ID_KEY)
+          sessionStorage.removeItem(LOBBY_CODE_KEY)
+          sessionStorage.removeItem(ROUND_PROMPT_KEY)
+          sessionStorage.removeItem(PLAYER_ID_KEY)
           localStorage.removeItem(NICKNAME_KEY)
         }
       }

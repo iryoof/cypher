@@ -25,7 +25,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
   const [voteResults, setVoteResults] = useState<number[]>([])
   const [hasVoted, setHasVoted] = useState(false)
   const hasRequestedState = useRef(false)
-  const storedPlayerId = typeof window !== 'undefined' ? localStorage.getItem('cypher-player-id') : null
+  const storedPlayerId = typeof window !== 'undefined' ? sessionStorage.getItem('cypher-player-id') : null
   const playerId = storedPlayerId || socket?.id || ''
   const isHost = gameState?.hostId === playerId
   const hasSubmittedCurrentRound = !!playerId && (gameState?.submittedPlayerIds?.includes(playerId) ?? false)
@@ -45,7 +45,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
   useEffect(() => {
     if (!socket) return
 
-    const savedPrompt = localStorage.getItem('cypher-round-prompt')
+    const savedPrompt = sessionStorage.getItem('cypher-round-prompt')
     if (savedPrompt) {
       try {
         const parsed = JSON.parse(savedPrompt)
@@ -68,7 +68,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
       setPhase('writing')
       setHasSubmitted(false)
       setPromptText(prompt || '')
-      localStorage.setItem('cypher-round-prompt', JSON.stringify({ roundNumber, prompt: prompt || '' }))
+      sessionStorage.setItem('cypher-round-prompt', JSON.stringify({ roundNumber, prompt: prompt || '' }))
       if (gameState?.settings?.timerEnabled) {
         reset(gameState.settings.timerSeconds || 60)
       } else {
