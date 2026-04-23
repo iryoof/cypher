@@ -9,11 +9,11 @@ export class GameManager {
   private totalGamesPlayed: number = 0
 
   createLobby(hostId: string, hostNickname: string, settings: GameSettings): Lobby {
-    const code = generateLobbyCode()
+    let code = generateLobbyCode()
     
     // Make sure code is unique
     while (this.lobbies.has(code)) {
-      this.generateLobbyCode()
+      code = generateLobbyCode()
     }
 
     const lobby = new Lobby(code, hostId, hostNickname, settings)
@@ -114,11 +114,6 @@ export class GameManager {
 
   getTotalGamesPlayed(): number {
     return this.totalGamesPlayed
-  }
-
-  private generateLobbyCode(): string {
-    // Helper to generate new codes
-    return Math.random().toString(36).substring(2, 8).toUpperCase()
   }
 
   private upsertArchive(archive: GameArchive): void {

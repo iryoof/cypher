@@ -20,6 +20,10 @@ export interface GameState {
   maxRounds: number; // 0 = unlimited
   gameStarted: boolean;
   gameEnded: boolean;
+  roundComplete: boolean;
+  votingActive: boolean;
+  submittedPlayerIds: string[];
+  votedPlayerIds: string[];
   settings: GameSettings;
 }
 

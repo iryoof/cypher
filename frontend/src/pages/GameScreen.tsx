@@ -25,9 +25,11 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
   const [voteResults, setVoteResults] = useState<number[]>([])
   const [hasVoted, setHasVoted] = useState(false)
   const hasRequestedState = useRef(false)
-  const lastRoundRef = useRef(0)
   const storedPlayerId = typeof window !== 'undefined' ? localStorage.getItem('cypher-player-id') : null
-  const isHost = gameState?.hostId === (storedPlayerId || socket?.id)
+  const playerId = storedPlayerId || socket?.id || ''
+  const isHost = gameState?.hostId === playerId
+  const hasSubmittedCurrentRound = !!playerId && (gameState?.submittedPlayerIds?.includes(playerId) ?? false)
+  const hasVotedCurrentRound = !!playerId && (gameState?.votedPlayerIds?.includes(playerId) ?? false)
 
   const shouldRunTimer = phase === 'writing' && (gameState?.settings?.timerEnabled ?? false)
 
@@ -76,6 +78,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
     })
 
     socket.on('round-complete', () => {
+      setHasSubmitted(hasSubmittedCurrentRound)
       setPhase('round-complete')
     })
 
@@ -86,7 +89,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
     socket.on('voting-started', (options: string[]) => {
       setVotingOptions(options || [])
       setVoteResults([])
-      setHasVoted(false)
+      setHasVoted(hasVotedCurrentRound)
       setPhase('voting')
     })
 
@@ -105,7 +108,7 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
       socket.off('voting-started')
       socket.off('voting-complete')
     }
-  }, [socket, gameState?.settings?.timerEnabled, gameState?.settings?.timerSeconds, onNavigate, reset, stop])
+  }, [socket, gameState?.settings?.timerEnabled, gameState?.settings?.timerSeconds, hasSubmittedCurrentRound, hasVotedCurrentRound, onNavigate, reset, stop])
 
   useEffect(() => {
     if (!socket?.connected) return
@@ -115,22 +118,28 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
   }, [socket])
 
   useEffect(() => {
-    if (!gameState || !gameState.gameStarted || gameState.gameEnded) return
-    if (gameState.currentRound < 1) return
+    if (!gameState) return
 
-    if (gameState.currentRound !== lastRoundRef.current) {
-      lastRoundRef.current = gameState.currentRound
-      setHasSubmitted(false)
-      setPhase('writing')
+    if (gameState.votingActive) {
+      setHasVoted(hasVotedCurrentRound)
+      setPhase(currentPhase => currentPhase === 'voting-results' ? currentPhase : 'voting')
       return
     }
 
-    if (!hasSubmitted && phase === 'waiting') {
-      setPhase('writing')
+    if (!gameState.gameStarted || gameState.gameEnded) return
+
+    setHasSubmitted(hasSubmittedCurrentRound)
+
+    if (gameState.roundComplete) {
+      setPhase('round-complete')
+      return
     }
-  }, [gameState, hasSubmitted, phase])
+
+    setPhase(hasSubmittedCurrentRound ? 'waiting' : 'writing')
+  }, [gameState, hasSubmittedCurrentRound, hasVotedCurrentRound])
 
   const handleTextSubmit = (text: string) => {
+    if (!socket?.connected || hasSubmittedCurrentRound) return
     submitText(text)
     setHasSubmitted(true)
     setPhase('waiting')

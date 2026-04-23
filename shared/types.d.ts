@@ -16,6 +16,10 @@ export interface GameState {
     maxRounds: number;
     gameStarted: boolean;
     gameEnded: boolean;
+    roundComplete: boolean;
+    votingActive: boolean;
+    submittedPlayerIds: string[];
+    votedPlayerIds: string[];
     settings: GameSettings;
 }
 export interface TextEntry {

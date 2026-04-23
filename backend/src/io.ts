@@ -47,7 +47,11 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
 
         const state = lobby.getState()
         socket.emit('state-update', state)
-        if (state.gameStarted && !state.gameEnded) {
+        if (state.votingActive) {
+          socket.emit('voting-started', lobby.getPendingArchive()?.finalTexts || [])
+        } else if (state.roundComplete) {
+          socket.emit('round-complete', state.currentRound)
+        } else if (state.gameStarted && !state.gameEnded && !lobby.hasPlayerSubmitted(playerId)) {
           const prompt = lobby.getPromptForPlayer(playerId)
           socket.emit('round-started', state.currentRound, prompt)
         }
@@ -64,6 +68,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         if (!lobby) throw new Error('Lobby not found')
 
         lobby.submitText(playerId, text)
+        io.to(lobby.getCode()).emit('state-update', lobby.getState())
 
         if (lobby.haveAllPlayersSubmitted()) {
           const snapshot = lobby.buildArchiveSnapshot()
@@ -193,6 +198,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         }
 
         const options = lobby.startVoting()
+        io.to(lobby.getCode()).emit('state-update', lobby.getState())
         io.to(lobby.getCode()).emit('voting-started', options)
       } catch (error: any) {
         socket.emit('error', error.message)
@@ -207,6 +213,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         if (!lobby) throw new Error('Lobby not found')
 
         lobby.submitVote(playerId, textIndex)
+        io.to(lobby.getCode()).emit('state-update', lobby.getState())
 
         if (lobby.haveAllPlayersVoted()) {
           const results = lobby.getVotingResults()

@@ -69,7 +69,7 @@ function App() {
   useEffect(() => {
     if (!gameState) return
     if (appState.currentPage !== 'menu') return
-    if (gameState.gameStarted && !gameState.gameEnded) {
+    if ((gameState.gameStarted && !gameState.gameEnded) || gameState.votingActive) {
       setAppState((prev: AppState) => ({ ...prev, currentPage: 'game' }))
       return
     }

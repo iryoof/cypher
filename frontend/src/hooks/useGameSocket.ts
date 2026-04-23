@@ -53,6 +53,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
     if (!socket) return
 
     socket.on('lobby-joined', (state: GameState) => {
+      setError('')
       setGameState(state)
       gameStateRef.current = state
       setLoading(false)
@@ -63,6 +64,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
 
     socket.on('lobby-created', (code: string, state: GameState) => {
       console.log('Lobby created:', code)
+      setError('')
       setGameState(state)
       gameStateRef.current = state
       setLoading(false)
@@ -72,8 +74,10 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
     })
 
     socket.on('state-update', (state: GameState) => {
+      setError('')
       setGameState(state)
       gameStateRef.current = state
+      setLoading(false)
       if (state?.lobbyCode) {
         localStorage.setItem('cypher-lobby-code', state.lobbyCode)
       }
@@ -85,6 +89,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
 
     socket.on('error', (message: string) => {
       setError(message)
+      setLoading(false)
       console.error('Socket error:', message)
       if (message.toLowerCase().includes('lobby not found') || message.toLowerCase().includes('lobby nicht gefunden')) {
         if (!gameStateRef.current) {
@@ -100,6 +105,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
 
     socket.on('connect_error', (err: Error) => {
       setError('Verbindung zum Server fehlgeschlagen')
+      setLoading(false)
       console.error('Connection error:', err)
     })
 
@@ -118,6 +124,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       setError('Nicht mit Server verbunden')
       return
     }
+    setError('')
     setLoading(true)
     const playerId = getOrCreatePlayerId()
     localStorage.setItem(NICKNAME_KEY, nickname)
@@ -129,6 +136,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       setError('Nicht mit Server verbunden')
       return
     }
+    setError('')
     setLoading(true)
     const playerId = getOrCreatePlayerId()
     localStorage.setItem(NICKNAME_KEY, nickname)

@@ -96,9 +96,20 @@ export class Lobby {
   }
 
   startGame(): void {
+    if (this.gameStarted && !this.gameEnded) {
+      throw new Error('Game already started')
+    }
     if (this.players.size < 3) {
       throw new Error('Need at least 3 players')
     }
+
+    this.archiveId = uuidv4()
+    this.archiveDate = new Date().toISOString()
+    this.sheets = new Map()
+    this.players.forEach((_, playerId) => {
+      this.sheets.set(playerId, [])
+    })
+    this.submissionsByRound.clear()
     this.shufflePlayerOrder()
     this.gameEnded = false
     this.votingActive = false
@@ -115,6 +126,9 @@ export class Lobby {
     }
     if (this.gameEnded) {
       throw new Error('Game ended')
+    }
+    if (this.hasPlayerSubmitted(playerId, this.currentRound)) {
+      throw new Error('Text already submitted')
     }
 
     const sheetOwner = this.getAssignedSheetOwner(playerId, this.currentRound)
@@ -151,6 +165,9 @@ export class Lobby {
   nextRound(): void {
     if (this.gameEnded) {
       throw new Error('Game ended')
+    }
+    if (!this.haveAllPlayersSubmitted()) {
+      throw new Error('Round is not complete')
     }
     this.currentRound++
     this.submissionsByRound.set(this.currentRound, new Set())
@@ -226,6 +243,7 @@ export class Lobby {
   }
 
   getState() {
+    const submittedPlayers = Array.from(this.submissionsByRound.get(this.currentRound) || [])
     return {
       lobbyCode: this.code,
       players: this.playerOrder.map(id => this.players.get(id)).filter(Boolean) as Player[],
@@ -234,6 +252,10 @@ export class Lobby {
       maxRounds: this.getMaxRounds(),
       gameStarted: this.gameStarted,
       gameEnded: this.gameEnded,
+      roundComplete: submittedPlayers.length >= this.players.size && this.players.size > 0,
+      votingActive: this.votingActive,
+      submittedPlayerIds: submittedPlayers,
+      votedPlayerIds: Array.from(this.votes.keys()),
       settings: this.settings
     }
   }
@@ -263,6 +285,9 @@ export class Lobby {
   }
 
   startVoting(): string[] {
+    if (this.votingActive && this.pendingArchive) {
+      return this.pendingArchive.finalTexts
+    }
     if (!this.pendingArchive) {
       this.pendingArchive = this.endGame()
     }
@@ -306,6 +331,10 @@ export class Lobby {
       this.pendingArchive = this.endGame()
     }
     return this.pendingArchive
+  }
+
+  hasPlayerSubmitted(playerId: string, roundNumber: number = this.currentRound): boolean {
+    return this.submissionsByRound.get(roundNumber)?.has(playerId) ?? false
   }
 
   private shufflePlayerOrder(): void {
