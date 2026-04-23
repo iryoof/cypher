@@ -6,13 +6,17 @@ export interface GameSocketApi {
   gameState: GameState | null
   error: string
   loading: boolean
+  kickedReason: string
   joinLobby: (code: string, nickname: string) => void
   createLobby: (nickname: string, playerCount: number, timerEnabled: boolean, timerSeconds: number) => void
   submitText: (text: string) => void
   submitVote: (textIndex: number) => void
   leaveLobby: () => void
   closeLobby: () => void
+  kickPlayer: (playerId: string) => void
+  transferHost: (newHostId: string) => void
   clearSession: () => void
+  clearKickedReason: () => void
   startGame: () => void
   socket: Socket | null
 }
@@ -41,6 +45,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [kickedReason, setKickedReason] = useState<string>('')
   const gameStateRef = useRef<GameState | null>(null)
 
   const clearSession = useCallback(() => {
@@ -94,6 +99,11 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       clearSession()
     })
 
+    socket.on('kicked', (reason: string) => {
+      setKickedReason(reason || 'Du wurdest aus der Lobby entfernt.')
+      clearSession()
+    })
+
     socket.on('error', (message: string) => {
       setError(message)
       setLoading(false)
@@ -121,6 +131,7 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
       socket.off('lobby-created')
       socket.off('state-update')
       socket.off('lobby-closed')
+      socket.off('kicked')
       socket.off('error')
       socket.off('connect_error')
     }
@@ -190,17 +201,41 @@ export function useGameSocket(socket: Socket | null): GameSocketApi {
     socket.emit('start-game')
   }, [socket])
 
+  const kickPlayer = useCallback((targetId: string) => {
+    if (!socket?.connected) {
+      setError('Nicht mit Server verbunden')
+      return
+    }
+    socket.emit('kick-player', targetId)
+  }, [socket])
+
+  const transferHost = useCallback((newHostId: string) => {
+    if (!socket?.connected) {
+      setError('Nicht mit Server verbunden')
+      return
+    }
+    socket.emit('transfer-host', newHostId)
+  }, [socket])
+
+  const clearKickedReason = useCallback(() => {
+    setKickedReason('')
+  }, [])
+
   return {
     gameState,
     error,
     loading,
+    kickedReason,
     joinLobby,
     createLobby,
     submitText,
     submitVote,
     leaveLobby,
     closeLobby,
+    kickPlayer,
+    transferHost,
     clearSession,
+    clearKickedReason,
     startGame,
     socket
   }

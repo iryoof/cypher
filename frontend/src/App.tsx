@@ -15,6 +15,15 @@ interface AppState {
   sessionId: string | null
 }
 
+// Read a lobby code from the URL query string (e.g. `?code=ABC123`) so that
+// invite links can drop users directly into the join form.
+const readInviteCode = (): string => {
+  if (typeof window === 'undefined') return ''
+  const params = new URLSearchParams(window.location.search)
+  const code = (params.get('code') || '').trim().toUpperCase()
+  return /^[A-Z0-9]{4,8}$/.test(code) ? code : ''
+}
+
 function App() {
   const [appState, setAppState] = useState<AppState>({
     currentPage: 'menu',
@@ -22,7 +31,8 @@ function App() {
     sessionId: null
   })
   const game = useGameSocket(appState.socket)
-  const { gameState } = game
+  const { gameState, kickedReason, clearKickedReason } = game
+  const [inviteCode, setInviteCode] = useState<string>(() => readInviteCode())
 
   useEffect(() => {
     // Initialize Socket.io connection
@@ -79,19 +89,55 @@ function App() {
     setAppState((prev: AppState) => ({ ...prev, currentPage: 'setup' }))
   }, [appState.currentPage, gameState])
 
+  // When the player is kicked we want to bounce them back to the landing page
+  // so they can see the banner and join a different lobby.
+  useEffect(() => {
+    if (kickedReason) {
+      setAppState((prev: AppState) => ({ ...prev, currentPage: 'menu' }))
+    }
+  }, [kickedReason])
+
   const navigateTo = (page: PageType) => {
     setAppState((prev: AppState) => ({ ...prev, currentPage: page }))
+  }
+
+  const consumeInviteCode = () => {
+    setInviteCode('')
+    // Also strip the ?code= from the URL so that refreshing the page doesn't
+    // keep popping users back into the join form.
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('code')
+      window.history.replaceState({}, '', url.toString())
+    }
   }
 
   return (
     <div className="min-h-screen bg-black text-white font-sans overflow-hidden">
       {/* Background effects */}
       <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-black to-black pointer-events-none" />
-      
+
       {/* Main content */}
       <div className="relative z-10">
+        {kickedReason && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-3 bg-red-600 text-white rounded-lg shadow-lg border border-red-400 flex items-center gap-3 max-w-md">
+            <span className="text-sm">👢 {kickedReason}</span>
+            <button
+              onClick={clearKickedReason}
+              className="text-white/90 hover:text-white text-xs underline"
+            >
+              Schließen
+            </button>
+          </div>
+        )}
         {appState.currentPage === 'menu' && (
-          <LobbyScreen socket={appState.socket} onNavigate={navigateTo} game={game} />
+          <LobbyScreen
+            socket={appState.socket}
+            onNavigate={navigateTo}
+            game={game}
+            inviteCode={inviteCode}
+            onInviteCodeConsumed={consumeInviteCode}
+          />
         )}
         {appState.currentPage === 'setup' && (
           <GameSetup socket={appState.socket} onNavigate={navigateTo} game={game} />

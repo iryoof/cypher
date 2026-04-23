@@ -17,6 +17,9 @@ export class Lobby {
   private pendingArchive: GameArchive | null = null
   private archiveId: string = uuidv4()
   private archiveDate: string = new Date().toISOString()
+  // Deadline (ms epoch) until which a disconnected player can still reconnect.
+  // Absent from the map = player is connected.
+  private disconnectDeadlines: Map<string, number> = new Map()
 
   constructor(code: string, hostId: string, hostNickname: string, settings: GameSettings) {
     this.code = code
@@ -75,6 +78,50 @@ export class Lobby {
     this.players.delete(playerId)
     this.playerOrder = this.playerOrder.filter(id => id !== playerId)
     this.sheets.delete(playerId)
+    this.disconnectDeadlines.delete(playerId)
+    if (this.hostId === playerId) {
+      const next = this.playerOrder[0]
+      if (next) {
+        this.hostId = next
+      }
+    }
+    // Prune any stale submissions / votes from removed player so that
+    // haveAllPlayersSubmitted / haveAllPlayersVoted reflect the current
+    // player set.
+    this.submissionsByRound.forEach(set => set.delete(playerId))
+    this.votes.delete(playerId)
+  }
+
+  /**
+   * Transfer host to the specified player (or the next player in order if
+   * not provided). Returns the new host's id, or null if no candidates.
+   */
+  transferHost(newHostId?: string): string | null {
+    const candidate = newHostId && this.players.has(newHostId)
+      ? newHostId
+      : this.playerOrder.find(id => id !== this.hostId && this.players.has(id))
+    if (!candidate) return null
+    this.hostId = candidate
+    return candidate
+  }
+
+  markDisconnected(playerId: string, graceMs: number): number | null {
+    if (!this.players.has(playerId)) return null
+    const deadline = Date.now() + graceMs
+    this.disconnectDeadlines.set(playerId, deadline)
+    return deadline
+  }
+
+  markReconnected(playerId: string): void {
+    this.disconnectDeadlines.delete(playerId)
+  }
+
+  isDisconnected(playerId: string): boolean {
+    return this.disconnectDeadlines.has(playerId)
+  }
+
+  getDisconnectedPlayerIds(): string[] {
+    return Array.from(this.disconnectDeadlines.keys())
   }
 
   setPlayerReady(playerId: string): void {
@@ -244,6 +291,10 @@ export class Lobby {
 
   getState() {
     const submittedPlayers = Array.from(this.submissionsByRound.get(this.currentRound) || [])
+    const disconnectDeadlines: Record<string, number> = {}
+    this.disconnectDeadlines.forEach((deadline, id) => {
+      disconnectDeadlines[id] = deadline
+    })
     return {
       lobbyCode: this.code,
       players: this.playerOrder.map(id => this.players.get(id)).filter(Boolean) as Player[],
@@ -256,6 +307,8 @@ export class Lobby {
       votingActive: this.votingActive,
       submittedPlayerIds: submittedPlayers,
       votedPlayerIds: Array.from(this.votes.keys()),
+      disconnectedPlayerIds: Array.from(this.disconnectDeadlines.keys()),
+      disconnectDeadlines,
       settings: this.settings
     }
   }

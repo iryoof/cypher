@@ -50,16 +50,31 @@ interface LobbyScreenProps {
   socket: Socket | null
   onNavigate: (page: PageType) => void
   game: GameSocketApi
+  inviteCode?: string
+  onInviteCodeConsumed?: () => void
 }
 
-export default function LobbyScreen({ socket, onNavigate, game }: LobbyScreenProps) {
+export default function LobbyScreen({ socket, onNavigate, game, inviteCode, onInviteCodeConsumed }: LobbyScreenProps) {
   const { gameState, error, loading, joinLobby, createLobby } = game
-  const [nickname, setNickname] = useState('')
+  const [nickname, setNickname] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem('cypher-nickname') || ''
+  })
   const [joinCode, setJoinCode] = useState('')
   const [step, setStep] = useState<'menu' | 'join' | 'create'>('menu')
   const [localError, setLocalError] = useState('')
   const [pendingNavigation, setPendingNavigation] = useState(false)
   const splashMessage = getDailySplashMessages(1)[0]
+
+  // If the user arrived via an invite link (`?code=ABC123`), drop them
+  // directly onto the join form with the code prefilled.
+  useEffect(() => {
+    if (!inviteCode) return
+    setJoinCode(inviteCode)
+    setStep('join')
+    setLocalError('')
+    onInviteCodeConsumed?.()
+  }, [inviteCode, onInviteCodeConsumed])
 
   useEffect(() => {
     if (gameState && pendingNavigation) {
