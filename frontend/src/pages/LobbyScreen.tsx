@@ -7,7 +7,7 @@ const SPLASH_MESSAGES = [
   'Ey Nico kennst du jemanden der Tin heißt?',
   'Bdonis',
   'Warum liegt auf Antons Kopf Stroh?',
-  'Noah wie steht der Hunger'
+  'Noah hat KEINE kroatischen Wurzeln'
 ]
 
 const getLocalDateKey = () => {
