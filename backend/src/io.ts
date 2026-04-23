@@ -180,7 +180,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
     })
 
     // Kick a specific player (host only).
-    socket.on('kick-player', (targetId: string) => {
+    socket.on('kick-player', async (targetId: string) => {
       try {
         const playerId = socket.data.playerId || socket.id
         const lobby = gameManager.findLobbyByPlayerId(playerId)
@@ -197,6 +197,13 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
 
         const code = lobby.getCode()
         cancelEviction(targetId)
+        // Force the target's socket(s) out of the lobby room BEFORE we broadcast
+        // the post-kick state so they don't receive a final state-update that
+        // would overwrite the 'kicked' handling on the client.
+        const targetSockets = await io.in(targetId).fetchSockets()
+        for (const s of targetSockets) {
+          s.leave(code)
+        }
         io.to(targetId).emit('kicked', 'Du wurdest aus der Lobby entfernt.')
         gameManager.removePlayer(targetId)
         const remaining = gameManager.findLobbyByCode(code)
