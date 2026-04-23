@@ -1,5 +1,46 @@
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { GameManager } from './game/GameManager'
+import { Lobby } from './game/Lobby'
+
+// Window within which a disconnected player may reconnect before being
+// evicted. 60s per product spec.
+const RECONNECT_GRACE_MS = 60_000
+
+// Map of playerId -> pending eviction timer. Stored at module scope so all
+// sockets (reconnects) can find & cancel a timer that belongs to a prior
+// session of the same player.
+const evictionTimers = new Map<string, NodeJS.Timeout>()
+
+function cancelEviction(playerId: string) {
+  const timer = evictionTimers.get(playerId)
+  if (timer) {
+    clearTimeout(timer)
+    evictionTimers.delete(playerId)
+  }
+}
+
+function scheduleEviction(
+  io: SocketIOServer,
+  gameManager: GameManager,
+  lobby: Lobby,
+  playerId: string
+) {
+  cancelEviction(playerId)
+  const code = lobby.getCode()
+  const timer = setTimeout(() => {
+    evictionTimers.delete(playerId)
+    const current = gameManager.findLobbyByPlayerId(playerId)
+    if (!current || current.getCode() !== code) return
+    if (!current.isDisconnected(playerId)) return
+    // removePlayer migrates host internally if the evicted player was host.
+    gameManager.removePlayer(playerId)
+    const remaining = gameManager.findLobbyByCode(code)
+    if (!remaining) return
+    io.to(code).emit('state-update', remaining.getState())
+    console.log(`Evicted ${playerId} from ${code} after reconnect grace period`)
+  }, RECONNECT_GRACE_MS)
+  evictionTimers.set(playerId, timer)
+}
 
 export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager) {
   io.on('connection', (socket: Socket) => {
@@ -13,9 +54,14 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         socket.data.playerId = clientId
         socket.join(clientId)
         const lobby = gameManager.joinLobby(clientId, code, nickname)
-        socket.join(code)
+        socket.join(lobby.getCode())
+        // If the player was in the reconnect grace window, cancel their pending
+        // eviction and clear the disconnect marker so other clients stop
+        // showing them as "getrennt".
+        cancelEviction(clientId)
+        lobby.markReconnected(clientId)
         socket.emit('lobby-joined', lobby.getState())
-        io.to(code).emit('state-update', lobby.getState())
+        io.to(lobby.getCode()).emit('state-update', lobby.getState())
         console.log(`${nickname} joined lobby ${code}`)
       } catch (error: any) {
         socket.emit('error', error.message)
@@ -81,24 +127,34 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
       }
     })
 
-    // Leave Lobby (non-host)
+    // Leave Lobby. Hosts are allowed to leave too — host role is transferred
+    // to the next player in order. If the host is the last player, the lobby
+    // is removed. `close-lobby` remains the explicit "shut everything down"
+    // action.
     socket.on('leave-lobby', () => {
       try {
         const playerId = socket.data.playerId || socket.id
         const lobby = gameManager.findLobbyByPlayerId(playerId)
         if (!lobby) throw new Error('Lobby not found')
-        if (lobby.getHostId() === playerId) {
-          throw new Error('Host muss die Lobby schließen')
-        }
 
         const code = lobby.getCode()
+        const wasLastPlayer = lobby.getPlayerCount() <= 1
+
+        cancelEviction(playerId)
+        // removePlayer migrates host internally if the leaving player was host.
         gameManager.removePlayer(playerId)
         socket.leave(code)
         socket.leave(playerId)
 
-        if (lobby.getPlayerCount() > 0) {
-          io.to(code).emit('state-update', lobby.getState())
+        if (wasLastPlayer) {
+          // Lobby was removed by removePlayer because it became empty; nothing
+          // else to broadcast.
+          return
         }
+
+        const remaining = gameManager.findLobbyByCode(code)
+        if (!remaining) return
+        io.to(code).emit('state-update', remaining.getState())
       } catch (error: any) {
         socket.emit('error', error.message)
       }
@@ -116,7 +172,66 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
 
         const code = lobby.getCode()
         io.to(code).emit('lobby-closed')
+        lobby.getPlayers().forEach(p => cancelEviction(p.id))
         gameManager.removeLobby(code)
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
+    })
+
+    // Kick a specific player (host only).
+    socket.on('kick-player', async (targetId: string) => {
+      try {
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
+        if (!lobby) throw new Error('Lobby not found')
+        if (lobby.getHostId() !== playerId) {
+          throw new Error('Nur der Host kann Spieler entfernen')
+        }
+        if (!targetId || targetId === playerId) {
+          throw new Error('Ungültiger Spieler')
+        }
+        if (!lobby.hasPlayer(targetId)) {
+          throw new Error('Spieler nicht in der Lobby')
+        }
+
+        const code = lobby.getCode()
+        cancelEviction(targetId)
+        // Force the target's socket(s) out of the lobby room BEFORE we broadcast
+        // the post-kick state so they don't receive a final state-update that
+        // would overwrite the 'kicked' handling on the client.
+        const targetSockets = await io.in(targetId).fetchSockets()
+        for (const s of targetSockets) {
+          s.leave(code)
+        }
+        io.to(targetId).emit('kicked', 'Du wurdest aus der Lobby entfernt.')
+        gameManager.removePlayer(targetId)
+        const remaining = gameManager.findLobbyByCode(code)
+        if (remaining) {
+          io.to(code).emit('state-update', remaining.getState())
+        }
+      } catch (error: any) {
+        socket.emit('error', error.message)
+      }
+    })
+
+    // Transfer host to another player (host only).
+    socket.on('transfer-host', (newHostId: string) => {
+      try {
+        const playerId = socket.data.playerId || socket.id
+        const lobby = gameManager.findLobbyByPlayerId(playerId)
+        if (!lobby) throw new Error('Lobby not found')
+        if (lobby.getHostId() !== playerId) {
+          throw new Error('Nur der Host kann die Host-Rolle übertragen')
+        }
+        if (!newHostId || newHostId === playerId) {
+          throw new Error('Ungültiger Spieler')
+        }
+        if (!lobby.hasPlayer(newHostId)) {
+          throw new Error('Spieler nicht in der Lobby')
+        }
+        lobby.transferHost(newHostId)
+        io.to(lobby.getCode()).emit('state-update', lobby.getState())
       } catch (error: any) {
         socket.emit('error', error.message)
       }
@@ -246,9 +361,27 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
       }
     })
 
-    // Disconnect
+    // Disconnect: start the reconnect grace window for the disconnecting
+    // player. If they do not reconnect within RECONNECT_GRACE_MS they are
+    // evicted (and host is transferred if needed).
     socket.on('disconnect', () => {
       console.log(`Client disconnected: ${socket.id}`)
+      const playerId = socket.data.playerId
+      if (!playerId) return
+      const lobby = gameManager.findLobbyByPlayerId(playerId)
+      if (!lobby) return
+      // Only mark as disconnected if no other live socket exists for this
+      // player id (e.g. another tab of the same browser window could share
+      // the id across sockets if the user uses the same session storage —
+      // although the sessionStorage fix means this should no longer happen
+      // for distinct tabs, we still guard to avoid spurious evictions).
+      const room = io.sockets.adapter.rooms.get(playerId)
+      if (room && room.size > 0) return
+
+      const deadline = lobby.markDisconnected(playerId, RECONNECT_GRACE_MS)
+      if (deadline === null) return
+      scheduleEviction(io, gameManager, lobby, playerId)
+      io.to(lobby.getCode()).emit('state-update', lobby.getState())
     })
 
     socket.on('error', (error) => {
