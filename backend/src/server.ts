@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express'
+import express, { Express, NextFunction, Request, Response } from 'express'
 import { createServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
 import cors from 'cors'
@@ -52,8 +52,11 @@ app.get('/api/stats', (req: Request, res: Response) => {
 // Socket.io Events
 setupSocketHandlers(io, gameManager)
 
-// Error handling
-app.use((err: any, req: Request, res: Response) => {
+// Error handling — must be the last middleware. Express only treats this as
+// an error handler when the function has exactly 4 parameters; with 3, it is
+// registered as regular middleware and crashes every request because `res` is
+// then the next() function, not the response object.
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   console.error('❌ Error:', err)
   res.status(500).json({ error: 'Internal Server Error' })
 })
