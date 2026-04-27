@@ -80,7 +80,14 @@ export class Lobby {
     this.sheets.delete(playerId)
     this.disconnectDeadlines.delete(playerId)
     if (this.hostId === playerId) {
-      const next = this.playerOrder[0]
+      // Prefer a connected player as the new host so the lobby isn't stuck
+      // waiting for a disconnected player to reconnect or get evicted.
+      // Fall back to any remaining player if everyone is currently in the
+      // reconnect grace window.
+      const connected = this.playerOrder.filter(
+        id => !this.disconnectDeadlines.has(id)
+      )
+      const next = connected[0] ?? this.playerOrder[0]
       if (next) {
         this.hostId = next
       }
