@@ -14,12 +14,12 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
   const [lobbyCode, setLobbyCode] = useState('')
-  const storedPlayerId = typeof window !== 'undefined' ? localStorage.getItem('cypher-player-id') : null
+  const storedPlayerId = typeof window !== 'undefined' ? sessionStorage.getItem('cypher-player-id') : null
   const isHost = gameState?.hostId === (storedPlayerId || socket?.id)
   const hasRequestedState = useRef(false)
 
   useEffect(() => {
-    const storedCode = localStorage.getItem('cypher-lobby-code') || ''
+    const storedCode = sessionStorage.getItem('cypher-lobby-code') || ''
     setLobbyCode(gameState?.lobbyCode || storedCode)
   }, [gameState?.lobbyCode])
 
@@ -36,7 +36,7 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
     if (!socket) return
 
     const handleRoundStarted = (roundNumber: number, prompt: string) => {
-      localStorage.setItem('cypher-round-prompt', JSON.stringify({ roundNumber, prompt }))
+      sessionStorage.setItem('cypher-round-prompt', JSON.stringify({ roundNumber, prompt }))
       onNavigate('game')
     }
 

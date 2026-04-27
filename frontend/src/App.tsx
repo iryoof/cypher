@@ -37,9 +37,12 @@ function App() {
     socket.on('connect', () => {
       console.log('✅ Connected to server')
       setAppState((prev: AppState) => ({ ...prev, socket, sessionId: socket.id ?? null }))
-      const savedCode = localStorage.getItem('cypher-lobby-code')
+      // Per-tab session data (lobby + player identity) lives in sessionStorage
+      // so each tab stays an independent client. The nickname is kept in
+      // localStorage as a user preference.
+      const savedCode = sessionStorage.getItem('cypher-lobby-code')
       const savedNickname = localStorage.getItem('cypher-nickname')
-      const savedPlayerId = localStorage.getItem('cypher-player-id')
+      const savedPlayerId = sessionStorage.getItem('cypher-player-id')
       if (savedCode && savedNickname && savedPlayerId) {
         socket.emit('join-lobby', savedCode, savedNickname, savedPlayerId)
       }
@@ -50,11 +53,11 @@ function App() {
     })
 
     const handleLobbyClosed = () => {
-      localStorage.removeItem('cypher-lobby-code')
-      localStorage.removeItem('cypher-game-state')
-      localStorage.removeItem('cypher-round-prompt')
+      sessionStorage.removeItem('cypher-lobby-code')
+      sessionStorage.removeItem('cypher-game-state')
+      sessionStorage.removeItem('cypher-round-prompt')
+      sessionStorage.removeItem('cypher-player-id')
       localStorage.removeItem('cypher-nickname')
-      localStorage.removeItem('cypher-player-id')
       setAppState((prev: AppState) => ({ ...prev, currentPage: 'menu' }))
     }
 
