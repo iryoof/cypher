@@ -37,9 +37,50 @@ function scheduleEviction(
     const remaining = gameManager.findLobbyByCode(code)
     if (!remaining) return
     io.to(code).emit('state-update', remaining.getState())
+    finalizeIfPhaseComplete(io, gameManager, remaining)
     console.log(`Evicted ${playerId} from ${code} after reconnect grace period`)
   }, RECONNECT_GRACE_MS)
   evictionTimers.set(playerId, timer)
+}
+
+/**
+ * After a player is removed from a lobby (eviction, kick, leave), the round or
+ * voting phase may already be complete because the remaining players had
+ * already submitted/voted. Without this helper, the round-complete /
+ * voting-complete signals would never fire and the game would be stuck on
+ * "Warte auf die anderen Spieler...".
+ */
+function finalizeIfPhaseComplete(
+  io: SocketIOServer,
+  gameManager: GameManager,
+  lobby: Lobby
+) {
+  const code = lobby.getCode()
+  const state = lobby.getState()
+  if (state.players.length === 0) return
+
+  if (state.votingActive) {
+    if (!lobby.haveAllPlayersVoted()) return
+    const archive = lobby.getOrCreatePendingArchive()
+    const results = lobby.getVotingResults()
+    io.to(code).emit('voting-complete', archive, results)
+    gameManager.storeArchive(archive, code)
+    return
+  }
+
+  if (state.gameStarted && !state.gameEnded) {
+    // The removed player may have been the only one not yet submitted.
+    // If their absence now satisfies haveAllPlayersSubmitted(), emit the
+    // round-complete signal so the surviving players advance instead of
+    // being stuck on "Warte auf die anderen Spieler...". Frontend's
+    // round-complete handler is idempotent, so a redundant emit (e.g. when
+    // submit-text already fired this round) is harmless.
+    if (!lobby.haveAllPlayersSubmitted()) return
+    const snapshot = lobby.buildArchiveSnapshot()
+    io.to(code).emit('round-archived', snapshot)
+    gameManager.saveArchiveSnapshot(snapshot)
+    io.to(code).emit('round-complete', state.currentRound)
+  }
 }
 
 export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager) {
@@ -155,6 +196,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         const remaining = gameManager.findLobbyByCode(code)
         if (!remaining) return
         io.to(code).emit('state-update', remaining.getState())
+        finalizeIfPhaseComplete(io, gameManager, remaining)
       } catch (error: any) {
         socket.emit('error', error.message)
       }
@@ -209,6 +251,7 @@ export function setupSocketHandlers(io: SocketIOServer, gameManager: GameManager
         const remaining = gameManager.findLobbyByCode(code)
         if (remaining) {
           io.to(code).emit('state-update', remaining.getState())
+          finalizeIfPhaseComplete(io, gameManager, remaining)
         }
       } catch (error: any) {
         socket.emit('error', error.message)
