@@ -10,12 +10,18 @@ interface GameSetupProps {
 }
 
 export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) {
-  const { gameState, error, loading, leaveLobby, closeLobby, clearSession, startGame } = game
+  const {
+    gameState, error, loading,
+    leaveLobby, closeLobby, clearSession, startGame,
+    kickPlayer, transferHost
+  } = game
   const [timerEnabled, setTimerEnabled] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(60)
   const [lobbyCode, setLobbyCode] = useState('')
+  const [copyFeedback, setCopyFeedback] = useState<'code' | 'link' | null>(null)
   const storedPlayerId = typeof window !== 'undefined' ? sessionStorage.getItem('cypher-player-id') : null
-  const isHost = gameState?.hostId === (storedPlayerId || socket?.id)
+  const selfId = storedPlayerId || socket?.id || ''
+  const isHost = !!gameState && gameState.hostId === selfId
   const hasRequestedState = useRef(false)
 
   useEffect(() => {
@@ -47,8 +53,45 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
     }
   }, [socket, onNavigate])
 
+  useEffect(() => {
+    if (!copyFeedback) return
+    const handle = setTimeout(() => setCopyFeedback(null), 1500)
+    return () => clearTimeout(handle)
+  }, [copyFeedback])
+
   const handleStartGame = () => {
     startGame()
+  }
+
+  const handleCopyCode = async () => {
+    if (!lobbyCode) return
+    try {
+      await navigator.clipboard.writeText(lobbyCode)
+      setCopyFeedback('code')
+    } catch {
+      setCopyFeedback(null)
+    }
+  }
+
+  const handleCopyInviteLink = async () => {
+    if (!lobbyCode || typeof window === 'undefined') return
+    const link = `${window.location.origin}/?code=${encodeURIComponent(lobbyCode)}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopyFeedback('link')
+    } catch {
+      setCopyFeedback(null)
+    }
+  }
+
+  const handleKickPlayer = (playerId: string, nickname: string) => {
+    if (!window.confirm(`Möchtest du ${nickname} wirklich aus der Lobby entfernen?`)) return
+    kickPlayer(playerId)
+  }
+
+  const handleTransferHost = (playerId: string, nickname: string) => {
+    if (!window.confirm(`Host-Rolle an ${nickname} übertragen?`)) return
+    transferHost(playerId)
   }
 
   if (!gameState) {
@@ -82,6 +125,8 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
     )
   }
 
+  const disconnectedIds = new Set(gameState.disconnectedPlayerIds || [])
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
       <div className="w-full max-w-md">
@@ -94,20 +139,28 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
           {/* Lobby Code */}
           <div className="text-center space-y-2">
             <p className="text-sm text-gray-400">Lobby-Code</p>
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
               <span className="text-3xl font-black tracking-widest text-purple-400">
                 {lobbyCode || '-'}
               </span>
               {lobbyCode && (
-                <button
-                  onClick={() => navigator.clipboard.writeText(lobbyCode)}
-                  className="px-3 py-1 text-xs rounded bg-gray-800 hover:bg-gray-700 transition"
-                >
-                  Kopieren
-                </button>
+                <>
+                  <button
+                    onClick={handleCopyCode}
+                    className="px-3 py-1 text-xs rounded bg-gray-800 hover:bg-gray-700 transition"
+                  >
+                    {copyFeedback === 'code' ? '✓ Kopiert' : 'Code kopieren'}
+                  </button>
+                  <button
+                    onClick={handleCopyInviteLink}
+                    className="px-3 py-1 text-xs rounded bg-gray-800 hover:bg-gray-700 transition"
+                  >
+                    {copyFeedback === 'link' ? '✓ Kopiert' : '🔗 Link kopieren'}
+                  </button>
+                </>
               )}
             </div>
-            <p className="text-xs text-gray-500">Teile den Code mit deinen Freunden</p>
+            <p className="text-xs text-gray-500">Teile den Code oder Link mit deinen Freunden</p>
           </div>
 
           {/* Player List */}
@@ -120,14 +173,45 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
             </div>
             {gameState?.players?.length ? (
               <div className="grid grid-cols-1 gap-2">
-                {gameState.players.map(player => (
-                  <div
-                    key={player.id}
-                    className="px-3 py-2 rounded bg-gray-800 text-sm text-gray-200"
-                  >
-                    {player.nickname}
-                  </div>
-                ))}
+                {gameState.players.map(player => {
+                  const isSelf = player.id === selfId
+                  const isPlayerHost = player.id === gameState.hostId
+                  const isDisconnected = disconnectedIds.has(player.id)
+                  const deadline = gameState.disconnectDeadlines?.[player.id]
+                  return (
+                    <div
+                      key={player.id}
+                      className={`flex items-center justify-between px-3 py-2 rounded bg-gray-800 text-sm ${isDisconnected ? 'opacity-60' : ''}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isPlayerHost && <span title="Host">👑</span>}
+                        <span className="text-gray-200 truncate">{player.nickname}</span>
+                        {isSelf && <span className="text-xs text-gray-500">(du)</span>}
+                        {isDisconnected && (
+                          <DisconnectBadge deadline={deadline} />
+                        )}
+                      </div>
+                      {isHost && !isSelf && !isDisconnected && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleTransferHost(player.id, player.nickname)}
+                            title="Host-Rolle übertragen"
+                            className="text-xs px-2 py-1 rounded bg-purple-700/60 hover:bg-purple-700 transition"
+                          >
+                            🛡️
+                          </button>
+                          <button
+                            onClick={() => handleKickPlayer(player.id, player.nickname)}
+                            title="Spieler entfernen"
+                            className="text-xs px-2 py-1 rounded bg-red-700/60 hover:bg-red-700 transition"
+                          >
+                            👢
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             ) : (
               <div className="text-xs text-gray-500">Noch keine Spieler beigetreten.</div>
@@ -196,16 +280,29 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
               </div>
             )}
             {isHost ? (
-              <button
-                onClick={() => {
-                  closeLobby()
-                  clearSession()
-                  onNavigate('menu')
-                }}
-                className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
-              >
-                Lobby schließen
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    leaveLobby()
+                    clearSession()
+                    onNavigate('menu')
+                  }}
+                  className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-bold transition"
+                >
+                  Lobby verlassen (Host wird übertragen)
+                </button>
+                <button
+                  onClick={() => {
+                    if (!window.confirm('Lobby wirklich für alle schließen?')) return
+                    closeLobby()
+                    clearSession()
+                    onNavigate('menu')
+                  }}
+                  className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-bold transition"
+                >
+                  Lobby schließen
+                </button>
+              </>
             ) : (
               <button
                 onClick={() => {
@@ -231,4 +328,21 @@ export default function GameSetup({ socket, onNavigate, game }: GameSetupProps) 
   )
 }
 
+/**
+ * Small helper that ticks down the remaining reconnect grace time in the UI
+ * without re-rendering the whole GameSetup every second.
+ */
+function DisconnectBadge({ deadline }: { deadline: number | undefined }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!deadline) return
+    const handle = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(handle)
+  }, [deadline])
 
+  if (!deadline) {
+    return <span className="text-xs text-yellow-400">🔌 getrennt</span>
+  }
+  const secs = Math.max(0, Math.ceil((deadline - now) / 1000))
+  return <span className="text-xs text-yellow-400">🔌 getrennt ({secs}s)</span>
+}

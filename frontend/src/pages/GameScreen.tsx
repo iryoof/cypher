@@ -6,6 +6,7 @@ import { useTimer } from '../hooks/useTimer'
 import TextInput from '../components/TextInput'
 import TwoLineInput from '../components/TwoLineInput'
 import Timer from '../components/Timer'
+import PlayerStatusList from '../components/PlayerStatusList'
 import { saveArchive } from '../services/archiveService'
 
 interface GameScreenProps {
@@ -316,6 +317,13 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
                   ✅ Text eingereicht! Warte auf die anderen...
                 </div>
               )}
+
+              <PlayerStatusList
+                players={gameState.players}
+                submittedPlayerIds={gameState.submittedPlayerIds || []}
+                disconnectedPlayerIds={gameState.disconnectedPlayerIds || []}
+                selfId={playerId}
+              />
             </div>
           )}
 
@@ -362,6 +370,12 @@ export default function GameScreen({ socket, onNavigate, game }: GameScreenProps
                   />
                 ))}
               </div>
+              <PlayerStatusList
+                players={gameState.players}
+                submittedPlayerIds={gameState.submittedPlayerIds || []}
+                disconnectedPlayerIds={gameState.disconnectedPlayerIds || []}
+                selfId={playerId}
+              />
             </div>
           )}
 

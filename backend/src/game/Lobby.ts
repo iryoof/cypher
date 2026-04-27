@@ -17,6 +17,15 @@ export class Lobby {
   private pendingArchive: GameArchive | null = null
   private archiveId: string = uuidv4()
   private archiveDate: string = new Date().toISOString()
+  // Deadline (ms epoch) until which a disconnected player can still reconnect.
+  // Absent from the map = player is connected.
+  private disconnectDeadlines: Map<string, number> = new Map()
+  // Sheets belonging to players who were removed (kick/leave/eviction) DURING
+  // an active game. These sheets contain text written by OTHER (still active)
+  // players via the round-robin assignment, so we must keep them around so
+  // those contributions appear in the final archive. Keyed by the original
+  // owner's playerId so we can preserve their nickname in the archive.
+  private orphanedSheets: Map<string, { nickname: string; sheet: TextEntry[] }> = new Map()
 
   constructor(code: string, hostId: string, hostNickname: string, settings: GameSettings) {
     this.code = code
@@ -72,9 +81,72 @@ export class Lobby {
   }
 
   removePlayer(playerId: string): void {
+    const departing = this.players.get(playerId)
+    const sheet = this.sheets.get(playerId)
+    // If the game is in progress, the departing player's sheet may contain
+    // text written by OTHER active players via the round-robin assignment.
+    // Preserve it so those contributions still appear in the final archive.
+    const gameActive = this.gameStarted && !this.gameEnded
+    if (gameActive && departing && sheet && sheet.length > 0) {
+      this.orphanedSheets.set(playerId, {
+        nickname: departing.nickname,
+        sheet: sheet
+      })
+    }
     this.players.delete(playerId)
     this.playerOrder = this.playerOrder.filter(id => id !== playerId)
     this.sheets.delete(playerId)
+    this.disconnectDeadlines.delete(playerId)
+    if (this.hostId === playerId) {
+      // Prefer a connected player as the new host so the lobby isn't stuck
+      // waiting for a disconnected player to reconnect or get evicted.
+      // Fall back to any remaining player if everyone is currently in the
+      // reconnect grace window.
+      const connected = this.playerOrder.filter(
+        id => !this.disconnectDeadlines.has(id)
+      )
+      const next = connected[0] ?? this.playerOrder[0]
+      if (next) {
+        this.hostId = next
+      }
+    }
+    // Prune any stale submissions / votes from removed player so that
+    // haveAllPlayersSubmitted / haveAllPlayersVoted reflect the current
+    // player set.
+    this.submissionsByRound.forEach(set => set.delete(playerId))
+    this.votes.delete(playerId)
+  }
+
+  /**
+   * Transfer host to the specified player (or the next player in order if
+   * not provided). Returns the new host's id, or null if no candidates.
+   */
+  transferHost(newHostId?: string): string | null {
+    const candidate = newHostId && this.players.has(newHostId)
+      ? newHostId
+      : this.playerOrder.find(id => id !== this.hostId && this.players.has(id))
+    if (!candidate) return null
+    this.hostId = candidate
+    return candidate
+  }
+
+  markDisconnected(playerId: string, graceMs: number): number | null {
+    if (!this.players.has(playerId)) return null
+    const deadline = Date.now() + graceMs
+    this.disconnectDeadlines.set(playerId, deadline)
+    return deadline
+  }
+
+  markReconnected(playerId: string): void {
+    this.disconnectDeadlines.delete(playerId)
+  }
+
+  isDisconnected(playerId: string): boolean {
+    return this.disconnectDeadlines.has(playerId)
+  }
+
+  getDisconnectedPlayerIds(): string[] {
+    return Array.from(this.disconnectDeadlines.keys())
   }
 
   setPlayerReady(playerId: string): void {
@@ -198,23 +270,45 @@ export class Lobby {
     return sheet[sheet.length - 1].text
   }
 
+  /**
+   * Build the archive payload. Includes both active players' sheets and any
+   * sheets orphaned by mid-game removal (kick/leave/eviction) so that text
+   * written by still-active players on those sheets is preserved.
+   */
+  private collectArchiveData(): {
+    players: string[]
+    rounds: TextEntry[][]
+    finalTexts: string[]
+  } {
+    const players: string[] = []
+    const rounds: TextEntry[][] = []
+    const finalTexts: string[] = []
+    this.playerOrder.forEach(ownerId => {
+      const player = this.players.get(ownerId)
+      const sheet = this.sheets.get(ownerId) || []
+      players.push(player ? player.nickname : ownerId)
+      rounds.push(sheet)
+      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
+    })
+    this.orphanedSheets.forEach(({ nickname, sheet }) => {
+      players.push(nickname)
+      rounds.push(sheet)
+      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
+    })
+    return { players, rounds, finalTexts }
+  }
+
   endGame(): GameArchive {
     this.gameEnded = true
     this.votingActive = true
 
-    const finalTexts: string[] = []
-    const rounds: TextEntry[][] = []
-    this.playerOrder.forEach(ownerId => {
-      const sheet = this.sheets.get(ownerId) || []
-      rounds.push(sheet)
-      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
-    })
+    const { players, rounds, finalTexts } = this.collectArchiveData()
 
     const archive: GameArchive = {
       id: this.archiveId,
       lobbyCode: this.code,
       date: this.archiveDate,
-      players: Array.from(this.players.values()).map(p => p.nickname),
+      players,
       rounds,
       finalTexts
     }
@@ -223,20 +317,13 @@ export class Lobby {
   }
 
   buildArchiveSnapshot(): GameArchive {
-    const finalTexts: string[] = []
-    const rounds: TextEntry[][] = []
-
-    this.playerOrder.forEach(ownerId => {
-      const sheet = this.sheets.get(ownerId) || []
-      rounds.push(sheet)
-      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
-    })
+    const { players, rounds, finalTexts } = this.collectArchiveData()
 
     return {
       id: this.archiveId,
       lobbyCode: this.code,
       date: this.archiveDate,
-      players: Array.from(this.players.values()).map(p => p.nickname),
+      players,
       rounds,
       finalTexts
     }
@@ -244,6 +331,10 @@ export class Lobby {
 
   getState() {
     const submittedPlayers = Array.from(this.submissionsByRound.get(this.currentRound) || [])
+    const disconnectDeadlines: Record<string, number> = {}
+    this.disconnectDeadlines.forEach((deadline, id) => {
+      disconnectDeadlines[id] = deadline
+    })
     return {
       lobbyCode: this.code,
       players: this.playerOrder.map(id => this.players.get(id)).filter(Boolean) as Player[],
@@ -256,6 +347,8 @@ export class Lobby {
       votingActive: this.votingActive,
       submittedPlayerIds: submittedPlayers,
       votedPlayerIds: Array.from(this.votes.keys()),
+      disconnectedPlayerIds: Array.from(this.disconnectDeadlines.keys()),
+      disconnectDeadlines,
       settings: this.settings
     }
   }

@@ -24,6 +24,13 @@ export interface GameState {
   votingActive: boolean;
   submittedPlayerIds: string[];
   votedPlayerIds: string[];
+  // IDs of players whose socket is currently disconnected but not yet evicted
+  // from the lobby (within the 60s reconnect grace window).
+  disconnectedPlayerIds: string[];
+  // Map of disconnected playerId -> ms epoch of the deadline after which the
+  // player will be evicted automatically. Used by the UI to render a
+  // countdown.
+  disconnectDeadlines: Record<string, number>;
   settings: GameSettings;
 }
 
@@ -58,6 +65,8 @@ export interface SocketEvents {
   'next-round': () => void;
   'end-game': () => void;
   'play-again': () => void;
+  'kick-player': (playerId: string) => void;
+  'transfer-host': (newHostId: string) => void;
 
   // Server -> Client
   'lobby-joined': (state: GameState) => void;
@@ -70,6 +79,7 @@ export interface SocketEvents {
   'voting-complete': (archive: GameArchive, results: number[]) => void;
   'lobby-closed': () => void;
   'game-ended': (archive: GameArchive) => void;
+  'kicked': (reason: string) => void;
   'error': (message: string) => void;
 }
 
