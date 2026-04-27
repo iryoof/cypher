@@ -20,6 +20,12 @@ export class Lobby {
   // Deadline (ms epoch) until which a disconnected player can still reconnect.
   // Absent from the map = player is connected.
   private disconnectDeadlines: Map<string, number> = new Map()
+  // Sheets belonging to players who were removed (kick/leave/eviction) DURING
+  // an active game. These sheets contain text written by OTHER (still active)
+  // players via the round-robin assignment, so we must keep them around so
+  // those contributions appear in the final archive. Keyed by the original
+  // owner's playerId so we can preserve their nickname in the archive.
+  private orphanedSheets: Map<string, { nickname: string; sheet: TextEntry[] }> = new Map()
 
   constructor(code: string, hostId: string, hostNickname: string, settings: GameSettings) {
     this.code = code
@@ -75,6 +81,18 @@ export class Lobby {
   }
 
   removePlayer(playerId: string): void {
+    const departing = this.players.get(playerId)
+    const sheet = this.sheets.get(playerId)
+    // If the game is in progress, the departing player's sheet may contain
+    // text written by OTHER active players via the round-robin assignment.
+    // Preserve it so those contributions still appear in the final archive.
+    const gameActive = this.gameStarted && !this.gameEnded
+    if (gameActive && departing && sheet && sheet.length > 0) {
+      this.orphanedSheets.set(playerId, {
+        nickname: departing.nickname,
+        sheet: sheet
+      })
+    }
     this.players.delete(playerId)
     this.playerOrder = this.playerOrder.filter(id => id !== playerId)
     this.sheets.delete(playerId)
@@ -252,23 +270,45 @@ export class Lobby {
     return sheet[sheet.length - 1].text
   }
 
+  /**
+   * Build the archive payload. Includes both active players' sheets and any
+   * sheets orphaned by mid-game removal (kick/leave/eviction) so that text
+   * written by still-active players on those sheets is preserved.
+   */
+  private collectArchiveData(): {
+    players: string[]
+    rounds: TextEntry[][]
+    finalTexts: string[]
+  } {
+    const players: string[] = []
+    const rounds: TextEntry[][] = []
+    const finalTexts: string[] = []
+    this.playerOrder.forEach(ownerId => {
+      const player = this.players.get(ownerId)
+      const sheet = this.sheets.get(ownerId) || []
+      players.push(player ? player.nickname : ownerId)
+      rounds.push(sheet)
+      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
+    })
+    this.orphanedSheets.forEach(({ nickname, sheet }) => {
+      players.push(nickname)
+      rounds.push(sheet)
+      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
+    })
+    return { players, rounds, finalTexts }
+  }
+
   endGame(): GameArchive {
     this.gameEnded = true
     this.votingActive = true
 
-    const finalTexts: string[] = []
-    const rounds: TextEntry[][] = []
-    this.playerOrder.forEach(ownerId => {
-      const sheet = this.sheets.get(ownerId) || []
-      rounds.push(sheet)
-      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
-    })
+    const { players, rounds, finalTexts } = this.collectArchiveData()
 
     const archive: GameArchive = {
       id: this.archiveId,
       lobbyCode: this.code,
       date: this.archiveDate,
-      players: Array.from(this.players.values()).map(p => p.nickname),
+      players,
       rounds,
       finalTexts
     }
@@ -277,20 +317,13 @@ export class Lobby {
   }
 
   buildArchiveSnapshot(): GameArchive {
-    const finalTexts: string[] = []
-    const rounds: TextEntry[][] = []
-
-    this.playerOrder.forEach(ownerId => {
-      const sheet = this.sheets.get(ownerId) || []
-      rounds.push(sheet)
-      finalTexts.push(sheet.map(entry => entry.text).join('\n'))
-    })
+    const { players, rounds, finalTexts } = this.collectArchiveData()
 
     return {
       id: this.archiveId,
       lobbyCode: this.code,
       date: this.archiveDate,
-      players: Array.from(this.players.values()).map(p => p.nickname),
+      players,
       rounds,
       finalTexts
     }
