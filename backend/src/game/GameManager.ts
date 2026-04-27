@@ -56,6 +56,10 @@ export class GameManager {
     return this.lobbies.get(code) || null
   }
 
+  findLobbyByCode(code: string): Lobby | null {
+    return this.lobbies.get(code.toUpperCase()) || null
+  }
+
   removeLobby(code: string): void {
     const lobby = this.lobbies.get(code)
     if (lobby) {
