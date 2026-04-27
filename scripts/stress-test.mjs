@@ -448,10 +448,7 @@ async function scenarioPregameLeaveAndClose(ctx) {
   const host = clients[0]
   await createAndJoinLobby(clients)
 
-  const hostLeaveError = expectedErrorPromise(host, 'Host muss die Lobby')
-  host.socket.emit('leave-lobby')
-  await hostLeaveError
-
+  // Non-hosts still cannot call close-lobby.
   const nonHostCloseError = expectedErrorPromise(clients[1], 'Nur der Host kann die Lobby')
   clients[1].socket.emit('close-lobby')
   await nonHostCloseError
@@ -461,8 +458,20 @@ async function scenarioPregameLeaveAndClose(ctx) {
     waitFor(() => client.state?.players?.length === 3, 8000, `${client.nickname} updated player count after leave`)
   ))
 
-  host.socket.emit('close-lobby')
-  await Promise.all(clients.slice(0, 3).map(client =>
+  // Host leaves: host role should migrate to the next player and the lobby
+  // should remain open.
+  host.socket.emit('leave-lobby')
+  const newHost = clients[1]
+  await Promise.all(clients.slice(1, 3).map(client =>
+    waitFor(
+      () => client.state?.players?.length === 2 && client.state?.hostId === newHost.playerId,
+      8000,
+      `${client.nickname} saw host migration to ${newHost.nickname}`
+    )
+  ))
+
+  newHost.socket.emit('close-lobby')
+  await Promise.all(clients.slice(1, 3).map(client =>
     waitFor(() => client.lobbyClosedCount === 1, 8000, `${client.nickname} lobby closed event`)
   ))
 
