@@ -181,6 +181,10 @@ export class Lobby {
     this.players.forEach((_, playerId) => {
       this.sheets.set(playerId, [])
     })
+    // Clear sheets orphaned by mid-game removal in any previous game on this
+    // lobby instance. Without this, a re-started game would carry over phantom
+    // players into its archive via collectArchiveData().
+    this.orphanedSheets.clear()
     this.submissionsByRound.clear()
     this.shufflePlayerOrder()
     this.gameEnded = false
