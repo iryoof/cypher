@@ -554,6 +554,22 @@ export function setupWerBinIchSocketHandlers(io: SocketIOServer) {
       werBinIchLobbies.delete(lobby.code)
     })
 
+    socket.on('game:end', () => {
+      const playerId = socket.data.werBinIchPlayerId as string | undefined
+      if (!playerId) return
+
+      const lobby = findLobbyByPlayerId(playerId)
+      if (!lobby) return
+      const player = lobby.players.find(entry => entry.id === playerId)
+      if (!player?.isHost) return
+
+      lobby.players.forEach(entry => {
+        cancelEviction(entry.id)
+        io.to(entry.id).emit('lobby:closed')
+      })
+      werBinIchLobbies.delete(lobby.code)
+    })
+
     socket.on('disconnect', () => {
       const playerId = socket.data.werBinIchPlayerId as string | undefined
       if (!playerId) return

@@ -12,7 +12,6 @@ interface MainMenuProps {
   error: string
   clearError: () => void
   reconnectAvailable: boolean
-  reconnectSecondsLeft: number
   reconnecting: boolean
   reconnectPlayerName?: string
   reconnectLobbyCode?: string
@@ -52,7 +51,6 @@ export default function MainMenu({
   clearError,
   socketAvailable,
   reconnectAvailable,
-  reconnectSecondsLeft,
   reconnecting,
   reconnectPlayerName,
   reconnectLobbyCode
@@ -121,7 +119,7 @@ export default function MainMenu({
                       <span className="text-zinc-100">{reconnectLobbyCode || '-----'}</span>
                     </p>
                     <p className="text-xs text-zinc-500 font-mono-ui uppercase tracking-[0.14em]">
-                      {t('availableForSeconds', { count: reconnectSecondsLeft })}
+                      {t('rejoinRunningGame')}
                     </p>
                   </div>
                   <button
@@ -177,13 +175,13 @@ export default function MainMenu({
                   type="text"
                   placeholder={placeholder}
                   value={name}
-                  onChange={event => setName(event.target.value.slice(0, 20))}
-                  maxLength={20}
+                  onChange={event => setName(event.target.value.slice(0, 40))}
+                  maxLength={40}
                   autoFocus
                   required
                   className="w-full rounded-2xl px-4 py-4 text-base placeholder:text-zinc-600"
                 />
-                <p className="text-right text-xs text-zinc-600 font-mono-ui">{name.length}/20</p>
+                <p className="text-right text-xs text-zinc-600 font-mono-ui">{name.length}/40</p>
               </div>
 
               {mode === 'join' && (

@@ -7,10 +7,9 @@ interface GameProps {
   socket: Socket
   game: WerBinIchGameState
   myName: string
-  onLeave: () => void
 }
 
-export default function Game({ socket, game, myName, onLeave }: GameProps) {
+export default function Game({ socket, game, myName }: GameProps) {
   const [word, setWord] = useState('')
   const [newWordTarget, setNewWordTarget] = useState<string | null>(null)
   const [newWord, setNewWord] = useState('')
@@ -254,12 +253,6 @@ export default function Game({ socket, game, myName, onLeave }: GameProps) {
               </div>
             </div>
 
-            <button
-              className="action-ghost w-full px-6 py-4 text-sm"
-              onClick={onLeave}
-            >
-              Spiel verlassen
-            </button>
           </div>
         </div>
       </div>

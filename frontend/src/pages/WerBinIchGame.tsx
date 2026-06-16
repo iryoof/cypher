@@ -44,7 +44,6 @@ export default function WerBinIchGame() {
   const [myName, setMyName] = useState(initialSession?.playerName || '')
   const [error, setError] = useState('')
   const [reconnecting, setReconnecting] = useState(false)
-  const [reconnectSecondsLeft, setReconnectSecondsLeft] = useState(0)
   const sessionRef = useRef<WerBinIchSession | null>(initialSession)
 
   const persistSession = (nextSession: WerBinIchSession | null) => {
@@ -132,11 +131,7 @@ export default function WerBinIchGame() {
       setSocketConnected(true)
       setError('')
 
-      if (
-        sessionRef.current?.reconnectKey &&
-        sessionRef.current?.reconnectDeadline &&
-        sessionRef.current.reconnectDeadline > Date.now()
-      ) {
+      if (sessionRef.current?.reconnectKey) {
         attemptSessionResume(newSocket)
       }
     })
@@ -154,25 +149,6 @@ export default function WerBinIchGame() {
       newSocket.disconnect()
     }
   }, [])
-
-  useEffect(() => {
-    if (!session?.reconnectDeadline) {
-      setReconnectSecondsLeft(0)
-      return
-    }
-
-    const updateCountdown = () => {
-      const seconds = Math.max(0, Math.ceil((session.reconnectDeadline! - Date.now()) / 1000))
-      setReconnectSecondsLeft(seconds)
-      if (seconds === 0) {
-        persistSession(null)
-      }
-    }
-
-    updateCountdown()
-    const timer = window.setInterval(updateCountdown, 1000)
-    return () => window.clearInterval(timer)
-  }, [session])
 
   const handleCreate = (name: string) => {
     if (!socket) return
@@ -235,13 +211,20 @@ export default function WerBinIchGame() {
     setReconnecting(false)
   }
 
+  const handleEndGame = () => {
+    if (socket) {
+      socket.emit('game:end')
+    }
+  }
+
+  const isHost =
+    (lobbyData?.players.find(p => p.id === session?.playerId)?.isHost) ||
+    (gameData?.isHost) ||
+    false
+
   const attemptSessionResume = (socketToUse: Socket) => {
     const currentSession = sessionRef.current
-    if (!currentSession?.reconnectKey || !currentSession.reconnectDeadline) return
-    if (currentSession.reconnectDeadline <= Date.now()) {
-      persistSession(null)
-      return
-    }
+    if (!currentSession?.reconnectKey) return
 
     setReconnecting(true)
     socketToUse.emit('session:resume', currentSession.reconnectKey, (response?: WerBinIchAck) => {
@@ -266,30 +249,47 @@ export default function WerBinIchGame() {
       </div>
 
       <div className="relative z-10">
-        { !socketConnected && !!session?.reconnectDeadline && reconnectSecondsLeft > 0 && (
-        <div className="fixed left-1/2 top-4 z-30 w-full max-w-4xl -translate-x-1/2 px-4">
-          <div className="rounded-3xl border border-white/15 bg-black/90 p-4 shadow-xl shadow-black/40 backdrop-blur-xl">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-zinc-400">Reconnect verfügbar</p>
-                <p className="mt-1 text-sm text-zinc-200">
-                  Deine Lobby bleibt für {reconnectSecondsLeft} Sekunden erhalten.
-                </p>
+        {!socketConnected && !!session?.reconnectKey && (
+          <div className="fixed left-1/2 top-4 z-30 w-full max-w-4xl -translate-x-1/2 px-4">
+            <div className="rounded-3xl border border-white/15 bg-black/90 p-4 shadow-xl shadow-black/40 backdrop-blur-xl">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.24em] text-zinc-400">Reconnect verfügbar</p>
+                  <p className="mt-1 text-sm text-zinc-200">Verbindung zum Server verloren.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleReconnect}
+                  disabled={reconnecting}
+                  className="action-primary w-full md:w-auto px-6 py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {reconnecting ? 'Verbinde …' : 'Wiederverbinden'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleReconnect}
-                disabled={reconnecting}
-                className="action-primary w-full md:w-auto px-6 py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {reconnecting ? 'Verbinde …' : 'Wiederverbinden'}
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {screen === 'menu' && (
+        {(screen === 'lobby' || screen === 'game') && (
+          <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2 items-end">
+            {isHost && (
+              <button
+                onClick={handleEndGame}
+                className="action-danger px-4 py-2 text-xs"
+              >
+                Spiel beenden
+              </button>
+            )}
+            <button
+              onClick={handleLeave}
+              className="action-ghost px-4 py-2 text-xs"
+            >
+              Spiel verlassen
+            </button>
+          </div>
+        )}
+
+        {screen === 'menu' && (
           <MainMenu
             socketConnected={!!socket?.connected}
             socketAvailable={!!socket}
@@ -298,8 +298,7 @@ export default function WerBinIchGame() {
             onReconnect={handleReconnect}
             error={error}
             clearError={() => setError('')}
-            reconnectAvailable={!!session?.reconnectDeadline && reconnectSecondsLeft > 0}
-            reconnectSecondsLeft={reconnectSecondsLeft}
+            reconnectAvailable={!!session?.reconnectKey}
             reconnecting={reconnecting}
             reconnectPlayerName={session?.playerName}
             reconnectLobbyCode={session?.lobbyCode}
@@ -313,7 +312,6 @@ export default function WerBinIchGame() {
             selfPlayerId={session?.playerId || null}
             error={error}
             onError={setError}
-            onLeave={handleLeave}
           />
         )}
 
@@ -322,7 +320,6 @@ export default function WerBinIchGame() {
             socket={socket}
             game={gameData}
             myName={myName}
-            onLeave={handleLeave}
           />
         )}
       </div>

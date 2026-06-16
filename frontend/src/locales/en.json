@@ -38,6 +38,7 @@
   "reconnectTitle": "Reconnect",
   "lastSession": "Last session",
   "availableForSeconds": "Available for {{count}}s",
+  "rejoinRunningGame": "Rejoin running game",
   "reconnectNow": "Reconnect",
   "reconnecting": "Connecting...",
   "wavvelength": "Wavelength",

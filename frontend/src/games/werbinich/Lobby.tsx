@@ -7,10 +7,9 @@ interface LobbyProps {
   selfPlayerId: string | null
   error: string
   onError: (message: string) => void
-  onLeave: () => void
 }
 
-export default function Lobby({ socket, lobby, selfPlayerId, error, onError, onLeave }: LobbyProps) {
+export default function Lobby({ socket, lobby, selfPlayerId, error, onError }: LobbyProps) {
   const me = lobby.players.find(player => player.id === selfPlayerId)
   const isHost = !!me?.isHost
 
@@ -114,12 +113,6 @@ export default function Lobby({ socket, lobby, selfPlayerId, error, onError, onL
               </div>
             )}
 
-            <button
-              onClick={onLeave}
-              className="action-secondary w-full px-6 py-4 text-sm"
-            >
-              Verlassen
-            </button>
           </div>
         </div>
       </div>
