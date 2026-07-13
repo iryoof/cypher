@@ -53,7 +53,7 @@ export default function TextInput({
         </div>
         <button
           onClick={handleSubmit}
-          disabled={isDisabled || !text.trim() || lineCount > maxLines}
+          disabled={isDisabled || !text.trim()}
           className="action-primary px-5 py-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Senden
