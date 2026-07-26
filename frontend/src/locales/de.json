@@ -1,4 +1,4 @@
-﻿{
+{
   "undergroundWordRelay": "Underground Word Relay",
   "cypher": "Cypher",
   "connecting": "Server-Verbindung wird hergestellt",
@@ -45,5 +45,8 @@
   "numberGuessingGame": "Zahlenratespiel",
   "wavelengthDescription": "Erraten Sie die Zahl durch Fragen",
   "pleaseEnterNickname": "Bitte geben Sie einen Spitznamen ein",
-  "pleaseEnterCode": "Bitte geben Sie einen Code ein"
+  "pleaseEnterCode": "Bitte geben Sie einen Code ein",
+  "crossword": "Kreuzworträtsel",
+  "soloPuzzle": "Rätsel für alleine",
+  "crosswordDescription": "Jedes Rätsel neu gewürfelt aus über 2000 Begriffen"
 }

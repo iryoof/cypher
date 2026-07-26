@@ -75,11 +75,27 @@ export default function GamePortal() {
             </div>
           </Link>
 
+          <Link
+            to="/kreuzwortraetsel"
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600/20 to-teal-600/20 border border-emerald-500/30 hover:border-emerald-400/60 transition-all duration-300 p-8 text-left hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 no-underline"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 group-hover:from-emerald-500/20 group-hover:to-teal-500/20 transition-all duration-300" />
+            <div className="relative z-10">
+              <div className="text-5xl mb-4">🧩</div>
+              <h2 className="text-3xl font-bold mb-2 text-white">{t('crossword')}</h2>
+              <p className="text-white/80 mb-4">{t('soloPuzzle')}</p>
+              <p className="text-sm text-white/60">{t('crosswordDescription')}</p>
+              <div className="mt-6 inline-block px-4 py-2 bg-emerald-500/30 rounded-lg text-sm text-emerald-300 group-hover:bg-emerald-500/50 transition-colors">
+                {t('play')}
+              </div>
+            </div>
+          </Link>
+
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
           <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-            <div className="text-2xl font-bold text-purple-400">3</div>
+            <div className="text-2xl font-bold text-purple-400">4</div>
             <p className="text-white/60 text-sm mt-1">{t('gamesAvailable')}</p>
           </div>
           <div className="p-4 rounded-lg bg-white/5 border border-white/10">

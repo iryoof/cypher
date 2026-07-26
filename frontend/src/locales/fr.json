@@ -1,4 +1,4 @@
-﻿{
+{
   "undergroundWordRelay": "Relais de mots underground",
   "cypher": "Cypher",
   "connecting": "Connexion au serveur en cours",
@@ -45,5 +45,8 @@
   "numberGuessingGame": "Jeu de devinette numérique",
   "wavelengthDescription": "Devinez le nombre à travers des questions",
   "pleaseEnterNickname": "Veuillez entrer un surnom",
-  "pleaseEnterCode": "Veuillez entrer un code"
+  "pleaseEnterCode": "Veuillez entrer un code",
+  "crossword": "Mots croisés",
+  "soloPuzzle": "Jeu en solo",
+  "crosswordDescription": "Une grille inédite tirée de plus de 2000 termes"
 }

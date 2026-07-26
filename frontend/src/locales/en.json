@@ -1,4 +1,4 @@
-﻿{
+{
   "undergroundWordRelay": "Underground Word Relay",
   "cypher": "Cypher",
   "connecting": "Connecting to server",
@@ -45,5 +45,8 @@
   "numberGuessingGame": "Number Guessing Game",
   "wavelengthDescription": "Guess the number through questions",
   "pleaseEnterNickname": "Please enter a nickname",
-  "pleaseEnterCode": "Please enter a code"
+  "pleaseEnterCode": "Please enter a code",
+  "crossword": "Crossword",
+  "soloPuzzle": "Solo puzzle",
+  "crosswordDescription": "A fresh grid from over 2000 terms every time"
 }
