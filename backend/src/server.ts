@@ -29,21 +29,35 @@ const toOrigin = (value: string): string | null => {
   }
 }
 
-const allowedOrigins = Array.from(new Set(
-  (process.env.FRONTEND_URL || 'http://localhost:5173')
+// The deployed site and the local dev server are always allowed. They are
+// baked in rather than left to FRONTEND_URL so that a missing or misconfigured
+// environment variable cannot take the live site offline. FRONTEND_URL only
+// adds further origins on top.
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://iryoof.github.io', // GitHub Pages
+  'http://localhost:5173'     // Vite dev server
+]
+
+const allowedOrigins = Array.from(new Set([
+  ...DEFAULT_ALLOWED_ORIGINS,
+  ...(process.env.FRONTEND_URL || '')
     .split(',')
     .map(toOrigin)
     .filter((value): value is string => value !== null)
-))
+]))
 
 // Requests without an Origin header (health checks, curl, same-origin server
 // calls) are not subject to CORS, so they must not be rejected here.
+//
+// Unknown origins are answered with `false`, not with an Error: an Error turns
+// into a 500 and also aborts the Socket.IO handshake. Answering `false` just
+// omits the Access-Control-Allow-Origin header and lets the browser enforce
+// the policy, which is how this endpoint behaved before the allowlist existed.
 const corsOrigin = (
   origin: string | undefined,
   callback: (err: Error | null, allow?: boolean) => void
 ) => {
-  if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
-  callback(new Error(`Origin not allowed by CORS: ${origin}`))
+  callback(null, !origin || allowedOrigins.includes(origin))
 }
 
 console.log('Allowed origins:', allowedOrigins.join(', '))
