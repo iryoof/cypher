@@ -1,13 +1,13 @@
 ﻿import { randomUUID } from 'node:crypto'
 import { Server as SocketIOServer, Socket } from 'socket.io'
-import { WavvelengthGameManager } from './game/WavvelengthGameManager'
-import { WavvelengthLobby, WavvelengthPlayer } from './game/WavvelengthLobby'
+import { WavelengthGameManager } from './game/WavelengthGameManager'
+import { WavelengthLobby, WavelengthPlayer } from './game/WavelengthLobby'
 
 const RECONNECT_GRACE_MS = 120_000
-const wavvelengthGameManager = new WavvelengthGameManager()
+const wavelengthGameManager = new WavelengthGameManager()
 const evictionTimers = new Map<string, NodeJS.Timeout>()
 
-interface WavvelengthSession {
+interface WavelengthSession {
   playerId: string
   reconnectKey: string
   lobbyCode: string
@@ -15,11 +15,11 @@ interface WavvelengthSession {
   reconnectDeadline: number | null
 }
 
-interface WavvelengthAck {
+interface WavelengthAck {
   ok?: boolean
   code?: string
   error?: string
-  session?: WavvelengthSession
+  session?: WavelengthSession
 }
 
 function cancelEviction(playerId: string) {
@@ -30,7 +30,7 @@ function cancelEviction(playerId: string) {
   evictionTimers.delete(playerId)
 }
 
-function buildSession(lobby: WavvelengthLobby, player: WavvelengthPlayer): WavvelengthSession {
+function buildSession(lobby: WavelengthLobby, player: WavelengthPlayer): WavelengthSession {
   return {
     playerId: player.id,
     reconnectKey: player.reconnectKey,
@@ -40,14 +40,14 @@ function buildSession(lobby: WavvelengthLobby, player: WavvelengthPlayer): Wavve
   }
 }
 
-function attachSocketToPlayer(socket: Socket, lobby: WavvelengthLobby, player: WavvelengthPlayer) {
-  socket.data.wavvelengthPlayerId = player.id
-  socket.data.wavvelengthReconnectKey = player.reconnectKey
+function attachSocketToPlayer(socket: Socket, lobby: WavelengthLobby, player: WavelengthPlayer) {
+  socket.data.wavelengthPlayerId = player.id
+  socket.data.wavelengthReconnectKey = player.reconnectKey
   socket.join(player.id)
   socket.join(lobby.getCode())
 }
 
-function buildGameState(lobby: WavvelengthLobby, playerId: string) {
+function buildGameState(lobby: WavelengthLobby, playerId: string) {
   const seekerInfo = lobby.getSeekerInfo()
   const player = lobby.getPlayer(playerId)
   if (!seekerInfo || !player) return null
@@ -75,7 +75,7 @@ function buildGameState(lobby: WavvelengthLobby, playerId: string) {
   }
 }
 
-function buildResultState(lobby: WavvelengthLobby, playerId: string) {
+function buildResultState(lobby: WavelengthLobby, playerId: string) {
   const seekerInfo = lobby.getSeekerInfo()
   const result = lobby.getResult()
   const player = lobby.getPlayer(playerId)
@@ -103,15 +103,15 @@ function buildResultState(lobby: WavvelengthLobby, playerId: string) {
   }
 }
 
-function broadcastLobbyState(io: SocketIOServer, lobby: WavvelengthLobby) {
+function broadcastLobbyState(io: SocketIOServer, lobby: WavelengthLobby) {
   io.to(lobby.getCode()).emit('wvl:lobby:update', lobby.getState())
 }
 
-function broadcastVotingState(io: SocketIOServer, lobby: WavvelengthLobby) {
+function broadcastVotingState(io: SocketIOServer, lobby: WavelengthLobby) {
   io.to(lobby.getCode()).emit('wvl:voting:started', lobby.getState())
 }
 
-function broadcastGameState(io: SocketIOServer, lobby: WavvelengthLobby) {
+function broadcastGameState(io: SocketIOServer, lobby: WavelengthLobby) {
   lobby.getPlayers().forEach(player => {
     const state = buildGameState(lobby, player.id)
     if (state) {
@@ -120,7 +120,7 @@ function broadcastGameState(io: SocketIOServer, lobby: WavvelengthLobby) {
   })
 }
 
-function broadcastResultState(io: SocketIOServer, lobby: WavvelengthLobby) {
+function broadcastResultState(io: SocketIOServer, lobby: WavelengthLobby) {
   lobby.getPlayers().forEach(player => {
     const state = buildResultState(lobby, player.id)
     if (state) {
@@ -129,7 +129,7 @@ function broadcastResultState(io: SocketIOServer, lobby: WavvelengthLobby) {
   })
 }
 
-function broadcastCurrentState(io: SocketIOServer, lobby: WavvelengthLobby) {
+function broadcastCurrentState(io: SocketIOServer, lobby: WavelengthLobby) {
   switch (lobby.getPhase()) {
     case 'waiting':
       broadcastLobbyState(io, lobby)
@@ -146,7 +146,7 @@ function broadcastCurrentState(io: SocketIOServer, lobby: WavvelengthLobby) {
   }
 }
 
-function advanceVotingIfReady(io: SocketIOServer, lobby: WavvelengthLobby) {
+function advanceVotingIfReady(io: SocketIOServer, lobby: WavelengthLobby) {
   if (!lobby.haveAllPlayersVoted()) {
     broadcastVotingState(io, lobby)
     return
@@ -157,7 +157,7 @@ function advanceVotingIfReady(io: SocketIOServer, lobby: WavvelengthLobby) {
   broadcastGameState(io, lobby)
 }
 
-function handleRosterChange(io: SocketIOServer, lobby: WavvelengthLobby) {
+function handleRosterChange(io: SocketIOServer, lobby: WavelengthLobby) {
   if (lobby.getPlayers().length === 0) return
 
   if (lobby.getPhase() === 'voting' && lobby.haveAllPlayersVoted()) {
@@ -173,12 +173,12 @@ function scheduleEviction(io: SocketIOServer, playerId: string) {
   const timer = setTimeout(() => {
     evictionTimers.delete(playerId)
 
-    const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+    const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
     if (!lobby || !lobby.isDisconnected(playerId)) return
 
     const code = lobby.getCode()
-    wavvelengthGameManager.removePlayer(playerId)
-    const remainingLobby = wavvelengthGameManager.findLobbyByCode(code)
+    wavelengthGameManager.removePlayer(playerId)
+    const remainingLobby = wavelengthGameManager.findLobbyByCode(code)
     if (remainingLobby) {
       handleRosterChange(io, remainingLobby)
     }
@@ -187,9 +187,9 @@ function scheduleEviction(io: SocketIOServer, playerId: string) {
   evictionTimers.set(playerId, timer)
 }
 
-export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
+export function setupWavelengthSocketHandlers(io: SocketIOServer) {
   io.on('connection', (socket: Socket) => {
-    socket.on('wvl:lobby:create', (nickname: string, callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:lobby:create', (nickname: string, callback?: (response: WavelengthAck) => void) => {
       try {
         const trimmedName = nickname?.trim()
         if (!trimmedName) {
@@ -198,7 +198,7 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
         }
 
         const playerId = randomUUID()
-        const lobby = wavvelengthGameManager.createLobby(playerId, trimmedName)
+        const lobby = wavelengthGameManager.createLobby(playerId, trimmedName)
         const player = lobby.getPlayer(playerId)
         if (!player) {
           callback?.({ error: 'Host konnte nicht erstellt werden.' })
@@ -214,7 +214,7 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:lobby:join', (code: string, nickname: string, callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:lobby:join', (code: string, nickname: string, callback?: (response: WavelengthAck) => void) => {
       try {
         const trimmedName = nickname?.trim()
         const normalizedCode = code?.trim().toUpperCase()
@@ -227,7 +227,7 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
           return
         }
 
-        const existingLobby = wavvelengthGameManager.findLobbyByCode(normalizedCode)
+        const existingLobby = wavelengthGameManager.findLobbyByCode(normalizedCode)
         if (!existingLobby) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
@@ -238,7 +238,7 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
         }
 
         const playerId = randomUUID()
-        const lobby = wavvelengthGameManager.joinLobby(playerId, normalizedCode, trimmedName)
+        const lobby = wavelengthGameManager.joinLobby(playerId, normalizedCode, trimmedName)
         const player = lobby.getPlayer(playerId)
         if (!player) {
           callback?.({ error: 'Spieler konnte nicht beitreten.' })
@@ -254,14 +254,14 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:session:resume', (reconnectKey: string, code: string, callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:session:resume', (reconnectKey: string, code: string, callback?: (response: WavelengthAck) => void) => {
       try {
         if (!reconnectKey || typeof reconnectKey !== 'string') {
           callback?.({ error: 'Reconnect-Schlüssel fehlt.' })
           return
         }
 
-        const match = wavvelengthGameManager.findPlayerByReconnectKey(reconnectKey, code)
+        const match = wavelengthGameManager.findPlayerByReconnectKey(reconnectKey, code)
         if (!match) {
           callback?.({ error: 'Reconnect-Fenster abgelaufen oder Session ungültig.' })
           return
@@ -270,8 +270,8 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
         const { lobby, player } = match
         if (player.reconnectDeadline && player.reconnectDeadline <= Date.now()) {
           const lobbyCode = lobby.getCode()
-          wavvelengthGameManager.removePlayer(player.id)
-          const remainingLobby = wavvelengthGameManager.findLobbyByCode(lobbyCode)
+          wavelengthGameManager.removePlayer(player.id)
+          const remainingLobby = wavelengthGameManager.findLobbyByCode(lobbyCode)
           if (remainingLobby) {
             handleRosterChange(io, remainingLobby)
           }
@@ -289,15 +289,15 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:lobby:start', (callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:lobby:start', (callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
@@ -319,15 +319,15 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:vote', (number: number, callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:vote', (number: number, callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
@@ -344,15 +344,15 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:ask-question', (targetPlayerId: string, question: string, callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:ask-question', (targetPlayerId: string, question: string, callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ error: 'Spiel nicht gefunden.' })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ error: 'Spiel nicht gefunden.' })
           return
@@ -369,15 +369,15 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:answer-question', (answer: string, callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:answer-question', (answer: string, callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ error: 'Spiel nicht gefunden.' })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ error: 'Spiel nicht gefunden.' })
           return
@@ -394,15 +394,15 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:make-guess', (guess: number, callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:make-guess', (guess: number, callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ error: 'Spiel nicht gefunden.' })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ error: 'Spiel nicht gefunden.' })
           return
@@ -419,15 +419,15 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:play-again', (callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:play-again', (callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
@@ -447,15 +447,15 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
       }
     })
 
-    socket.on('wvl:end-game', (callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:end-game', (callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
@@ -469,22 +469,22 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
         const code = lobby.getCode()
         lobby.getPlayers().forEach(player => cancelEviction(player.id))
         io.to(code).emit('wvl:lobby:closed')
-        wavvelengthGameManager.removeLobby(code)
+        wavelengthGameManager.removeLobby(code)
         callback?.({ ok: true })
       } catch (error: any) {
         callback?.({ error: error.message })
       }
     })
 
-    socket.on('wvl:lobby:close', (callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:lobby:close', (callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ error: 'Lobby nicht gefunden.' })
           return
@@ -497,22 +497,22 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
         const code = lobby.getCode()
         lobby.getPlayers().forEach(player => cancelEviction(player.id))
         io.to(code).emit('wvl:lobby:closed')
-        wavvelengthGameManager.removeLobby(code)
+        wavelengthGameManager.removeLobby(code)
         callback?.({ ok: true })
       } catch (error: any) {
         callback?.({ error: error.message })
       }
     })
 
-    socket.on('wvl:lobby:leave', (callback?: (response: WavvelengthAck) => void) => {
+    socket.on('wvl:lobby:leave', (callback?: (response: WavelengthAck) => void) => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) {
           callback?.({ ok: true })
           return
         }
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) {
           callback?.({ ok: true })
           return
@@ -520,11 +520,11 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
 
         const code = lobby.getCode()
         cancelEviction(playerId)
-        wavvelengthGameManager.removePlayer(playerId)
+        wavelengthGameManager.removePlayer(playerId)
         socket.leave(code)
         socket.leave(playerId)
 
-        const remainingLobby = wavvelengthGameManager.findLobbyByCode(code)
+        const remainingLobby = wavelengthGameManager.findLobbyByCode(code)
         if (remainingLobby) {
           handleRosterChange(io, remainingLobby)
         }
@@ -537,20 +537,20 @@ export function setupWavvelengthSocketHandlers(io: SocketIOServer) {
 
     socket.on('disconnect', () => {
       try {
-        const playerId = socket.data.wavvelengthPlayerId as string | undefined
+        const playerId = socket.data.wavelengthPlayerId as string | undefined
         if (!playerId) return
 
         const room = io.sockets.adapter.rooms.get(playerId)
         if (room && room.size > 0) return
 
-        const lobby = wavvelengthGameManager.findLobbyByPlayerId(playerId)
+        const lobby = wavelengthGameManager.findLobbyByPlayerId(playerId)
         if (!lobby) return
 
         lobby.markDisconnected(playerId, Date.now() + RECONNECT_GRACE_MS)
         scheduleEviction(io, playerId)
         broadcastCurrentState(io, lobby)
       } catch (error) {
-        console.error('Wavvelength disconnect error:', error)
+        console.error('Wavelength disconnect error:', error)
       }
     })
   })

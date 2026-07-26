@@ -1,10 +1,10 @@
 ﻿import { useMemo, useState } from 'react'
 import type { Socket } from 'socket.io-client'
-import type { WavvelengthAck, WavvelengthGameState } from './types'
+import type { WavelengthAck, WavelengthGameState } from './types'
 
 interface GameProps {
   socket: Socket
-  gameState: WavvelengthGameState
+  gameState: WavelengthGameState
   onError: (message: string) => void
 }
 
@@ -36,7 +36,7 @@ export default function Game({ socket, gameState, onError }: GameProps) {
     }
 
     setLoading(true)
-    socket.emit('wvl:ask-question', selectedPlayerForQuestion, question.trim(), (response?: WavvelengthAck) => {
+    socket.emit('wvl:ask-question', selectedPlayerForQuestion, question.trim(), (response?: WavelengthAck) => {
       setLoading(false)
       if (response?.error) {
         onError(response.error)
@@ -54,7 +54,7 @@ export default function Game({ socket, gameState, onError }: GameProps) {
     }
 
     setLoading(true)
-    socket.emit('wvl:answer-question', answer.trim(), (response?: WavvelengthAck) => {
+    socket.emit('wvl:answer-question', answer.trim(), (response?: WavelengthAck) => {
       setLoading(false)
       if (response?.error) {
         onError(response.error)
@@ -71,7 +71,7 @@ export default function Game({ socket, gameState, onError }: GameProps) {
     }
 
     setLoading(true)
-    socket.emit('wvl:make-guess', selectedGuess, (response?: WavvelengthAck) => {
+    socket.emit('wvl:make-guess', selectedGuess, (response?: WavelengthAck) => {
       setLoading(false)
       if (response?.error) {
         onError(response.error)

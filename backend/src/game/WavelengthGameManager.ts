@@ -1,25 +1,25 @@
-﻿import { WavvelengthLobby, WavvelengthPlayer } from './WavvelengthLobby'
+﻿import { WavelengthLobby, WavelengthPlayer } from './WavelengthLobby'
 import { generateLobbyCode } from '../utils/codeGenerator'
 
-export class WavvelengthGameManager {
-  private lobbies: Map<string, WavvelengthLobby> = new Map()
+export class WavelengthGameManager {
+  private lobbies: Map<string, WavelengthLobby> = new Map()
   private playerLobbies: Map<string, string> = new Map()
 
-  createLobby(hostId: string, hostName: string): WavvelengthLobby {
+  createLobby(hostId: string, hostName: string): WavelengthLobby {
     let code = generateLobbyCode()
     while (this.lobbies.has(code)) {
       code = generateLobbyCode()
     }
 
-    const lobby = new WavvelengthLobby(code, hostId, hostName)
+    const lobby = new WavelengthLobby(code, hostId, hostName)
     this.lobbies.set(code, lobby)
     this.playerLobbies.set(hostId, code)
 
-    console.log(`Wavvelength lobby created: ${code}`)
+    console.log(`Wavelength lobby created: ${code}`)
     return lobby
   }
 
-  joinLobby(playerId: string, code: string, playerName: string): WavvelengthLobby {
+  joinLobby(playerId: string, code: string, playerName: string): WavelengthLobby {
     const normalizedCode = code.trim().toUpperCase()
     const existingCode = this.playerLobbies.get(playerId)
     if (existingCode && existingCode !== normalizedCode) {
@@ -38,21 +38,21 @@ export class WavvelengthGameManager {
     lobby.addPlayer(playerId, playerName)
     this.playerLobbies.set(playerId, normalizedCode)
 
-    console.log(`Player ${playerName} joined Wavvelength lobby ${normalizedCode}`)
+    console.log(`Player ${playerName} joined Wavelength lobby ${normalizedCode}`)
     return lobby
   }
 
-  findLobbyByPlayerId(playerId: string): WavvelengthLobby | null {
+  findLobbyByPlayerId(playerId: string): WavelengthLobby | null {
     const code = this.playerLobbies.get(playerId)
     if (!code) return null
     return this.lobbies.get(code) || null
   }
 
-  findLobbyByCode(code: string): WavvelengthLobby | null {
+  findLobbyByCode(code: string): WavelengthLobby | null {
     return this.lobbies.get(code.trim().toUpperCase()) || null
   }
 
-  findPlayerByReconnectKey(reconnectKey: string, code?: string): { lobby: WavvelengthLobby; player: WavvelengthPlayer } | null {
+  findPlayerByReconnectKey(reconnectKey: string, code?: string): { lobby: WavelengthLobby; player: WavelengthPlayer } | null {
     if (code) {
       const lobby = this.findLobbyByCode(code)
       const player = lobby?.findPlayerByReconnectKey(reconnectKey)
@@ -99,7 +99,7 @@ export class WavvelengthGameManager {
     }
   }
 
-  getAllLobbies(): WavvelengthLobby[] {
+  getAllLobbies(): WavelengthLobby[] {
     return Array.from(this.lobbies.values())
   }
 }

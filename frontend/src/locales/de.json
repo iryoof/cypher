@@ -41,9 +41,9 @@
   "rejoinRunningGame": "Laufendes Spiel beitreten",
   "reconnectNow": "Wiederverbinden",
   "reconnecting": "Verbinde...",
-  "wavvelength": "Wavelength",
+  "wavelength": "Wavelength",
   "numberGuessingGame": "Zahlenratespiel",
-  "wavvelengthDescription": "Erraten Sie die Zahl durch Fragen",
+  "wavelengthDescription": "Erraten Sie die Zahl durch Fragen",
   "pleaseEnterNickname": "Bitte geben Sie einen Spitznamen ein",
   "pleaseEnterCode": "Bitte geben Sie einen Code ein"
 }

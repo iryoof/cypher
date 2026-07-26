@@ -1,6 +1,6 @@
-export type WavvelengthScreen = 'menu' | 'lobby' | 'voting' | 'game' | 'result'
+export type WavelengthScreen = 'menu' | 'lobby' | 'voting' | 'game' | 'result'
 
-export interface WavvelengthPlayer {
+export interface WavelengthPlayer {
   id: string
   name: string
   isHost: boolean
@@ -8,14 +8,14 @@ export interface WavvelengthPlayer {
   reconnectDeadline?: number | null
 }
 
-export interface WavvelengthLobbyState {
+export interface WavelengthLobbyState {
   code: string
   state: 'waiting' | 'voting' | 'playing' | 'result'
-  players: WavvelengthPlayer[]
+  players: WavelengthPlayer[]
   votedPlayerIds: string[]
 }
 
-export interface WavvelengthVoteOption {
+export interface WavelengthVoteOption {
   number: number
   votes: number
 }
@@ -27,9 +27,9 @@ export interface QuestionAndAnswer {
   answer: string
 }
 
-export interface WavvelengthGameState {
+export interface WavelengthGameState {
   state: 'voting' | 'playing' | 'result'
-  players: WavvelengthPlayer[]
+  players: WavelengthPlayer[]
   seekerId: string
   seekerName: string
   targetNumber: number
@@ -48,15 +48,15 @@ export interface WavvelengthGameState {
   reconnectDeadline?: number | null
 }
 
-export interface WavvelengthAck {
+export interface WavelengthAck {
   ok?: boolean
   code?: string
   targetNumber?: number
   error?: string
-  session?: WavvelengthSession
+  session?: WavelengthSession
 }
 
-export interface WavvelengthSession {
+export interface WavelengthSession {
   playerId: string
   reconnectKey: string
   lobbyCode: string
@@ -64,7 +64,7 @@ export interface WavvelengthSession {
   reconnectDeadline: number | null
 }
 
-export interface WavvelengthRound {
+export interface WavelengthRound {
   seekerId: string
   targetNumber: number
   questionsAndAnswers: QuestionAndAnswer[]
@@ -72,10 +72,10 @@ export interface WavvelengthRound {
   isCorrect: boolean
 }
 
-export interface WavvelengthArchive {
+export interface WavelengthArchive {
   id: string
   lobbyCode: string
   date: string
   players: string[]
-  rounds: WavvelengthRound[]
+  rounds: WavelengthRound[]
 }

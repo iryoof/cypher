@@ -1,145 +1,79 @@
-# 🚀 CYPHER Deployment Guide
+# 🚀 Deployment
 
-## Quick Start für GitHub + Vercel + Render
+Zwei getrennte Ziele: das statische Frontend liegt auf GitHub Pages, das
+Socket.IO-Backend auf Render.
 
-### Schritt 1: GitHub Repository erstellen
+## Frontend — GitHub Pages
+
+Läuft vollautomatisch. Jeder Push auf `main` startet den Workflow
+[`.github/workflows/ghpages.yml`](.github/workflows/ghpages.yml), der
+`node build.js` ausführt und `frontend/dist` als Pages-Artefakt veröffentlicht.
+
+Ergebnis: https://iryoof.github.io/iryogamecollection/
+
+Zwei Dinge hängen daran und dürfen nicht auseinanderlaufen:
+
+- `base: '/iryogamecollection/'` in `frontend/vite.config.ts` muss zum
+  Repository-Namen passen.
+- `VITE_BACKEND_URL` wird im Workflow gesetzt (nicht aus `.env.production`
+  gelesen) und muss auf die Render-URL zeigen.
+
+Weil GitHub Pages keine SPA-Rewrites unterstützt, nutzt die App `HashRouter`;
+`frontend/public/404.html` fängt direkte Deep-Links ab.
+
+### Lokal testen
 
 ```bash
-# Repository initialisieren
-cd C:\Users\david\Pictures\cypher\Cypher
-git init
-git add .
-git commit -m "Initial commit: Cypher Game Setup"
-
-# GitHub Repository erstellen unter github.com/david/cypher
-# Dann:
-git remote add origin https://github.com/DEIN_USERNAME/cypher.git
-git branch -M main
-git push -u origin main
+npm run build --workspace=frontend && npm run preview --workspace=frontend
 ```
 
-### Schritt 2: Frontend auf Vercel deployen
+## Backend — Render
 
-1. Gehe zu https://vercel.com
-2. Logge dich ein (oder melde dich an)
-3. Klicke "New Project"
-4. Wähle dein GitHub Repository "cypher"
-5. Framework: **Vite**
-6. Root Directory: **frontend**
-7. Environment Variables:
-   - `VITE_BACKEND_URL` = `https://cypher-backend.onrender.com`
-8. Deploy!
+Konfiguriert in [`render.yaml`](./render.yaml):
 
-**Fertig!** Frontend läuft auf: `https://cypher-XXXXX.vercel.app`
+| Einstellung | Wert |
+| --- | --- |
+| Build Command | `npm install && npm run build --workspace=backend` |
+| Start Command | `npm start --workspace=backend` |
+| Region / Plan | Frankfurt / Free |
+| Health Check | `/health` |
 
-### Schritt 3: Backend auf Render deployen
+Aktueller Service: `https://cypher-backend-ume8.onrender.com`
 
-1. Gehe zu https://render.com
-2. Logge dich ein (oder melde dich an)
-3. Klicke "New +" → "Web Service"
-4. Wähle GitHub Repository "cypher"
-5. **Settings:**
-   - Name: `cypher-backend`
-   - Environment: `Node`
-   - Build Command: `npm install && npm run build --workspace=backend`
-   - Start Command: `npm start --workspace=backend`
-   - Region: `Frankfurt` (oder nächste)
-   - Plan: `Free`
-6. **Environment Variables:**
-   - `NODE_ENV` = `production`
-   - `FRONTEND_URL` = `https://cypher-XXXXX.vercel.app` (deine Vercel URL)
-   - `PORT` = `3000`
-7. Deploy!
+### Environment Variables
 
-**Fertig!** Backend läuft auf: `https://cypher-backend.onrender.com`
+| Variable | Bedeutung |
+| --- | --- |
+| `NODE_ENV` | `production` |
+| `PORT` | von Render gesetzt |
+| `FRONTEND_URL` | Komma-getrennte Liste erlaubter Browser-Origins |
 
-### Schritt 4: Frontend Environment vorbereiten
+`FRONTEND_URL` ist die CORS-Allowlist. Einträge sind **Origins**, keine URLs mit
+Pfad — also `https://iryoof.github.io`, nicht
+`https://iryoof.github.io/iryogamecollection`. Mehrere Einträge werden mit Komma
+getrennt, damit z. B. ein lokaler Dev-Server gegen das Prod-Backend testen kann:
 
-Erstelle `frontend/.env.production`:
-```env
-VITE_BACKEND_URL=https://cypher-backend.onrender.com
+```
+FRONTEND_URL=https://iryoof.github.io,http://localhost:5173
 ```
 
-Erstelle `.env.example` für Backend:
-```env
-NODE_ENV=production
-FRONTEND_URL=https://cypher-XXXXX.vercel.app
-PORT=3000
-```
+## Nach dem Deploy
 
-### Schritt 5: GitHub Secrets setzen (Optional für Auto-Deploy)
-
-In GitHub Repository Settings → Secrets and variables:
-```
-VERCEL_TOKEN = (von Vercel Account Settings)
-VERCEL_ORG_ID = (von Vercel)
-VERCEL_PROJECT_ID = (von Vercel Project)
-RENDER_SERVICE_ID = (von Render Service)
-RENDER_DEPLOY_KEY = (von Render Account)
-```
-
-### Schritt 6: Domain & Branding
-
-**Vercel Custom Domain:**
-1. Vercel Project → Settings → Domains
-2. Füge `cypher.yourdomain.com` hinzu (optional)
-
-**Render Custom Domain:**
-1. Render Service → Settings → Custom Domain
-2. Gleich wie Vercel
-
-### Nach dem Deployment
-
-✅ **Frontend**: https://cypher-XXXXX.vercel.app (Deine Spieler)
-✅ **Backend**: https://cypher-backend.onrender.com (Echtzeit Server)
-✅ **Archiv**: Speichert automatisch auf Backend
-
-### Development & Updates
-
-Nach jeder Änderung:
 ```bash
-git add .
-git commit -m "feat: description"
-git push origin main
+curl https://cypher-backend-ume8.onrender.com/health
 ```
 
-**Automatisch:**
-- ✅ GitHub Actions testet Code
-- ✅ Vercel deployed Frontend neu
-- ✅ Render deployed Backend neu
-- ✅ Spieler sehen Updates live!
+## Troubleshooting
 
-### Troubleshooting
+**WebSocket verbindet nicht.** Fast immer CORS: prüfen, ob die Origin des
+Frontends exakt in `FRONTEND_URL` steht. Das Backend loggt die aktive Allowlist
+beim Start (`Allowed origins: ...`).
 
-**WebSocket verbindet nicht?**
-- Check: `FRONTEND_URL` im Backend .env
-- Check: CORS Settings
-- Render Logs: https://render.com/dashboard
+**Erste Verbindung dauert ~30 Sekunden.** Der Free-Plan von Render fährt den
+Service nach 15 Minuten Inaktivität herunter. Der erste Aufruf weckt ihn.
 
-**Vercel build fehlgeschlagen?**
-- Vercel Logs überprüfen
-- Local testen: `npm run build --workspace=frontend`
+**Laufende Spiele sind nach einem Deploy weg.** Erwartetes Verhalten — der
+Spielzustand liegt nur im Arbeitsspeicher, es gibt keine Datenbank.
 
-**Render service nicht erreichbar?**
-- Free Plan: Service startet nach 15 Min inaktiv neu
-- Solution: Premium Plan oder Uptime Monitor
-
-## Mobile Spielen
-
-Deine Freunde öffnen einfach:
-```
-https://cypher-XXXXX.vercel.app
-```
-
-Das wars! 🎉
-
----
-
-## Keine Lust auf Setup?
-
-Alternativ kannst du auch:
-- **Replit.com** - Kostenlos, alles inklusive
-- **Railway.app** - Einfach, Render-Alternative
-- **Heroku** - (bezahlt, aber einfach)
-
-**Empfehlung:** Vercel + Render (Free Tier, beste Performance)
+**Pages-Seite zeigt 404 oder leere Seite.** `base` in `vite.config.ts` gegen den
+Repository-Namen prüfen.

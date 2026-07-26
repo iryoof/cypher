@@ -1,9 +1,9 @@
 ﻿import type { Socket } from 'socket.io-client'
-import type { WavvelengthAck, WavvelengthLobbyState } from './types'
+import type { WavelengthAck, WavelengthLobbyState } from './types'
 
 interface LobbyProps {
   socket: Socket
-  lobby: WavvelengthLobbyState
+  lobby: WavelengthLobbyState
   selfPlayerId: string | null
   error: string
   onError: (message: string) => void
@@ -16,7 +16,7 @@ export default function Lobby({ socket, lobby, selfPlayerId, error, onError, onL
   const canStart = lobby.players.filter(player => !player.isDisconnected).length >= 2
 
   const handleStart = () => {
-    socket.emit('wvl:lobby:start', (response?: WavvelengthAck) => {
+    socket.emit('wvl:lobby:start', (response?: WavelengthAck) => {
       if (response?.error) {
         onError(response.error)
       }
@@ -24,7 +24,7 @@ export default function Lobby({ socket, lobby, selfPlayerId, error, onError, onL
   }
 
   const handleClose = () => {
-    socket.emit('wvl:lobby:close', (response?: WavvelengthAck) => {
+    socket.emit('wvl:lobby:close', (response?: WavelengthAck) => {
       if (response?.error) {
         onError(response.error)
       }

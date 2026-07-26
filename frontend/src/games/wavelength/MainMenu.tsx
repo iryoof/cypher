@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import type { Socket } from 'socket.io-client'
 import LanguageSelector from '../../components/LanguageSelector'
-import type { WavvelengthAck, WavvelengthSession } from './types'
+import type { WavelengthAck, WavelengthSession } from './types'
 
 interface MainMenuProps {
   socket: Socket
-  onSession: (session: WavvelengthSession) => void
+  onSession: (session: WavelengthSession) => void
   error: string
   onError: (message: string) => void
   clearError: () => void
@@ -27,7 +27,7 @@ export default function MainMenu({ socket, onSession, error, onError, clearError
     }
 
     setLoading(true)
-    socket.emit('wvl:lobby:create', nickname.trim(), (response?: WavvelengthAck) => {
+    socket.emit('wvl:lobby:create', nickname.trim(), (response?: WavelengthAck) => {
       setLoading(false)
       if (response?.error) {
         onError(response.error)
@@ -51,7 +51,7 @@ export default function MainMenu({ socket, onSession, error, onError, clearError
     }
 
     setLoading(true)
-    socket.emit('wvl:lobby:join', lobbyCode.trim().toUpperCase(), nickname.trim(), (response?: WavvelengthAck) => {
+    socket.emit('wvl:lobby:join', lobbyCode.trim().toUpperCase(), nickname.trim(), (response?: WavelengthAck) => {
       setLoading(false)
       if (response?.error) {
         onError(response.error)
@@ -78,7 +78,7 @@ export default function MainMenu({ socket, onSession, error, onError, clearError
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-3">
             <p className="section-kicker">{t('numberGuessingGame')}</p>
-            <h1 className="hero-title text-[clamp(2.8rem,10vw,4.8rem)] leading-none">{t('wavvelength')}</h1>
+            <h1 className="hero-title text-[clamp(2.8rem,10vw,4.8rem)] leading-none">{t('wavelength')}</h1>
             <p className="text-sm text-zinc-400">{isJoin ? t('joinLobby') : t('createLobby')}</p>
           </div>
 
@@ -140,8 +140,8 @@ export default function MainMenu({ socket, onSession, error, onError, clearError
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-4">
           <p className="section-kicker">{t('numberGuessingGame')}</p>
-          <h1 className="hero-title text-[clamp(3.1rem,12vw,5.2rem)] leading-none">{t('wavvelength')}</h1>
-          <p className="text-white/70">{t('wavvelengthDescription')}</p>
+          <h1 className="hero-title text-[clamp(3.1rem,12vw,5.2rem)] leading-none">{t('wavelength')}</h1>
+          <p className="text-white/70">{t('wavelengthDescription')}</p>
         </div>
 
         <div className="screen-shell rounded-[2rem] p-6 md:p-8 space-y-4 animate-fade-in">

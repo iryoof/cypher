@@ -5,7 +5,7 @@ import cors from 'cors'
 import { GameManager } from './game/GameManager'
 import { setupSocketHandlers } from './io'
 import { setupWerBinIchSocketHandlers } from './werbinich'
-import { setupWavvelengthSocketHandlers } from './wavvelength'
+import { setupWavelengthSocketHandlers } from './wavelength'
 import { listSaves, saveGame, loadSave, deleteSave } from './saveManager'
 import dotenv from 'dotenv'
 
@@ -13,11 +13,44 @@ dotenv.config()
 
 const app: Express = express()
 const port = process.env.PORT || 3000
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+
+// FRONTEND_URL may hold several comma-separated origins so that the deployed
+// site and a local dev server can talk to the same backend. Entries are
+// normalised to their origin, because a value that accidentally carries a path
+// (e.g. https://iryoof.github.io/iryogamecollection) would never match the
+// Origin header a browser sends.
+const toOrigin = (value: string): string | null => {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  try {
+    return new URL(trimmed).origin
+  } catch {
+    return trimmed.replace(/\/+$/, '')
+  }
+}
+
+const allowedOrigins = Array.from(new Set(
+  (process.env.FRONTEND_URL || 'http://localhost:5173')
+    .split(',')
+    .map(toOrigin)
+    .filter((value): value is string => value !== null)
+))
+
+// Requests without an Origin header (health checks, curl, same-origin server
+// calls) are not subject to CORS, so they must not be rejected here.
+const corsOrigin = (
+  origin: string | undefined,
+  callback: (err: Error | null, allow?: boolean) => void
+) => {
+  if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
+  callback(new Error(`Origin not allowed by CORS: ${origin}`))
+}
+
+console.log('Allowed origins:', allowedOrigins.join(', '))
 
 // Middleware
 app.use(cors({
-  origin: frontendUrl,
+  origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST']
 }))
@@ -29,7 +62,7 @@ const httpServer = createServer(app)
 // Socket.io Server
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: frontendUrl,
+    origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST']
   },
@@ -55,7 +88,7 @@ app.get('/api/stats', (req: Request, res: Response) => {
 // Socket.io Events
 setupSocketHandlers(io, gameManager)
 setupWerBinIchSocketHandlers(io)
-setupWavvelengthSocketHandlers(io)
+setupWavelengthSocketHandlers(io)
 
 // Error handling â€” must be the last middleware. Express only treats this as
 // an error handler when the function has exactly 4 parameters; with 3, it is

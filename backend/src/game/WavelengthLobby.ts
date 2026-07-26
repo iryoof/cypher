@@ -1,6 +1,6 @@
 ﻿import { v4 as uuidv4 } from 'uuid'
 
-export interface WavvelengthPlayer {
+export interface WavelengthPlayer {
   id: string
   name: string
   isHost: boolean
@@ -16,7 +16,7 @@ export interface QuestionAndAnswer {
   answer: string
 }
 
-export interface WavvelengthArchiveRound {
+export interface WavelengthArchiveRound {
   seekerId: string
   seekerName: string
   targetNumber: number
@@ -25,33 +25,33 @@ export interface WavvelengthArchiveRound {
   isCorrect: boolean
 }
 
-export interface WavvelengthArchive {
+export interface WavelengthArchive {
   id: string
   lobbyCode: string
   date: string
   players: string[]
-  rounds: WavvelengthArchiveRound[]
+  rounds: WavelengthArchiveRound[]
 }
 
-type WavvelengthPhase = 'waiting' | 'voting' | 'playing' | 'result'
+type WavelengthPhase = 'waiting' | 'voting' | 'playing' | 'result'
 
-export class WavvelengthLobby {
+export class WavelengthLobby {
   private code: string
-  private players: Map<string, WavvelengthPlayer> = new Map()
+  private players: Map<string, WavelengthPlayer> = new Map()
   private hostId: string
-  private state: WavvelengthPhase = 'waiting'
+  private state: WavelengthPhase = 'waiting'
   private votes: Map<string, number> = new Map()
   private selectedNumber: number | null = null
   private seekerId: string | null = null
   private questionsAndAnswers: QuestionAndAnswer[] = []
   private seekerGuess: number | null = null
-  private archive: WavvelengthArchive | null = null
+  private archive: WavelengthArchive | null = null
 
   constructor(code: string, hostId: string, hostName: string) {
     this.code = code
     this.hostId = hostId
 
-    const host: WavvelengthPlayer = {
+    const host: WavelengthPlayer = {
       id: hostId,
       name: hostName,
       isHost: true,
@@ -67,22 +67,22 @@ export class WavvelengthLobby {
     return this.code
   }
 
-  getPhase(): WavvelengthPhase {
+  getPhase(): WavelengthPhase {
     return this.state
   }
 
-  getPlayers(): WavvelengthPlayer[] {
+  getPlayers(): WavelengthPlayer[] {
     return Array.from(this.players.values())
   }
 
-  getActivePlayers(): WavvelengthPlayer[] {
+  getActivePlayers(): WavelengthPlayer[] {
     return this.getPlayers().filter(player => !player.isDisconnected)
   }
 
   getState(): {
     code: string
-    state: WavvelengthPhase
-    players: WavvelengthPlayer[]
+    state: WavelengthPhase
+    players: WavelengthPlayer[]
     votedPlayerIds: string[]
   } {
     return {
@@ -97,21 +97,21 @@ export class WavvelengthLobby {
     return this.hostId
   }
 
-  getPlayer(playerId: string): WavvelengthPlayer | null {
+  getPlayer(playerId: string): WavelengthPlayer | null {
     return this.players.get(playerId) || null
   }
 
-  findPlayerByReconnectKey(reconnectKey: string): WavvelengthPlayer | null {
+  findPlayerByReconnectKey(reconnectKey: string): WavelengthPlayer | null {
     return this.getPlayers().find(player => player.reconnectKey === reconnectKey) || null
   }
 
-  addPlayer(playerId: string, playerName: string): WavvelengthPlayer {
+  addPlayer(playerId: string, playerName: string): WavelengthPlayer {
     const existing = this.players.get(playerId)
     if (existing) {
       return existing
     }
 
-    const player: WavvelengthPlayer = {
+    const player: WavelengthPlayer = {
       id: playerId,
       name: playerName,
       isHost: false,
@@ -346,7 +346,7 @@ export class WavvelengthLobby {
     this.resetRoundState('waiting')
   }
 
-  createArchiveSnapshot(): WavvelengthArchive {
+  createArchiveSnapshot(): WavelengthArchive {
     if (!this.archive) {
       this.archive = {
         id: uuidv4(),
@@ -387,7 +387,7 @@ export class WavvelengthLobby {
     this.hostId = nextHost.id
   }
 
-  private resetRoundState(nextState: WavvelengthPhase): void {
+  private resetRoundState(nextState: WavelengthPhase): void {
     this.state = nextState
     this.votes.clear()
     this.selectedNumber = null

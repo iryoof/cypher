@@ -1,54 +1,56 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
-import MainMenu from '../games/wavvelength/MainMenu'
-import Lobby from '../games/wavvelength/Lobby'
-import VotingScreen from '../games/wavvelength/VotingScreen'
-import Game from '../games/wavvelength/Game'
-import ResultScreen from '../games/wavvelength/ResultScreen'
+import MainMenu from '../games/wavelength/MainMenu'
+import Lobby from '../games/wavelength/Lobby'
+import VotingScreen from '../games/wavelength/VotingScreen'
+import Game from '../games/wavelength/Game'
+import ResultScreen from '../games/wavelength/ResultScreen'
 import type {
-  WavvelengthAck,
-  WavvelengthGameState,
-  WavvelengthLobbyState,
-  WavvelengthSession,
-  WavvelengthScreen
-} from '../games/wavvelength/types'
+  WavelengthAck,
+  WavelengthGameState,
+  WavelengthLobbyState,
+  WavelengthSession,
+  WavelengthScreen
+} from '../games/wavelength/types'
 import '../styles/globals.css'
 
+// Keeps the historical (misspelled) key so sessions that were stored before the
+// rename can still be reconnected after a deploy.
 const SESSION_STORAGE_KEY = 'wavvelength:session'
 const RECONNECT_GRACE_MS = 120_000
 
-const readStoredSession = (): WavvelengthSession | null => {
+const readStoredSession = (): WavelengthSession | null => {
   if (typeof window === 'undefined') return null
 
   const raw = localStorage.getItem(SESSION_STORAGE_KEY)
   if (!raw) return null
 
   try {
-    return JSON.parse(raw) as WavvelengthSession
+    return JSON.parse(raw) as WavelengthSession
   } catch {
     localStorage.removeItem(SESSION_STORAGE_KEY)
     return null
   }
 }
 
-export default function WavvelengthGame() {
+export default function WavelengthGame() {
   useEffect(() => {
     document.title = 'Wavelength'
   }, [])
 
   const initialSession = readStoredSession()
-  const [screen, setScreen] = useState<WavvelengthScreen>('menu')
+  const [screen, setScreen] = useState<WavelengthScreen>('menu')
   const [socket, setSocket] = useState<Socket | null>(null)
   const [socketConnected, setSocketConnected] = useState(false)
-  const [lobbyData, setLobbyData] = useState<WavvelengthLobbyState | null>(null)
-  const [gameData, setGameData] = useState<WavvelengthGameState | null>(null)
-  const [session, setSession] = useState<WavvelengthSession | null>(initialSession)
+  const [lobbyData, setLobbyData] = useState<WavelengthLobbyState | null>(null)
+  const [gameData, setGameData] = useState<WavelengthGameState | null>(null)
+  const [session, setSession] = useState<WavelengthSession | null>(initialSession)
   const [error, setError] = useState('')
   const [reconnecting, setReconnecting] = useState(false)
   const [reconnectSecondsLeft, setReconnectSecondsLeft] = useState(0)
-  const sessionRef = useRef<WavvelengthSession | null>(initialSession)
+  const sessionRef = useRef<WavelengthSession | null>(initialSession)
 
-  const persistSession = (nextSession: WavvelengthSession | null) => {
+  const persistSession = (nextSession: WavelengthSession | null) => {
     sessionRef.current = nextSession
     setSession(nextSession)
 
@@ -71,7 +73,7 @@ export default function WavvelengthGame() {
       transports: ['websocket', 'polling']
     })
 
-    const syncSessionPlayer = (players: WavvelengthLobbyState['players']) => {
+    const syncSessionPlayer = (players: WavelengthLobbyState['players']) => {
       const activeSession = sessionRef.current
       const me = players.find(player => player.id === activeSession?.playerId)
       if (!activeSession || !me) return
@@ -83,7 +85,7 @@ export default function WavvelengthGame() {
       })
     }
 
-    const handleLobbyUpdate = (data: WavvelengthLobbyState) => {
+    const handleLobbyUpdate = (data: WavelengthLobbyState) => {
       setLobbyData(data)
       setGameData(null)
       syncSessionPlayer(data.players)
@@ -92,7 +94,7 @@ export default function WavvelengthGame() {
       setReconnecting(false)
     }
 
-    const handleVotingStarted = (data: WavvelengthLobbyState) => {
+    const handleVotingStarted = (data: WavelengthLobbyState) => {
       setLobbyData(data)
       setGameData(null)
       syncSessionPlayer(data.players)
@@ -101,7 +103,7 @@ export default function WavvelengthGame() {
       setReconnecting(false)
     }
 
-    const handleGameState = (data: WavvelengthGameState) => {
+    const handleGameState = (data: WavelengthGameState) => {
       setGameData(data)
       setLobbyData(null)
       syncSessionPlayer(data.players)
@@ -110,7 +112,7 @@ export default function WavvelengthGame() {
       setReconnecting(false)
     }
 
-    const handleResultState = (data: WavvelengthGameState) => {
+    const handleResultState = (data: WavelengthGameState) => {
       setGameData(data)
       setLobbyData(null)
       syncSessionPlayer(data.players)
@@ -197,7 +199,7 @@ export default function WavvelengthGame() {
     if (!currentSession?.reconnectKey || !currentSession.lobbyCode) return
 
     setReconnecting(true)
-    socketToUse.emit('wvl:session:resume', currentSession.reconnectKey, currentSession.lobbyCode, (response?: WavvelengthAck) => {
+    socketToUse.emit('wvl:session:resume', currentSession.reconnectKey, currentSession.lobbyCode, (response?: WavelengthAck) => {
       setReconnecting(false)
       if (response?.error) {
         persistSession(null)

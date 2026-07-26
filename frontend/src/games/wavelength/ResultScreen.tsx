@@ -1,9 +1,9 @@
 ﻿import type { Socket } from 'socket.io-client'
-import type { WavvelengthAck, WavvelengthGameState } from './types'
+import type { WavelengthAck, WavelengthGameState } from './types'
 
 interface ResultScreenProps {
   socket: Socket
-  gameState: WavvelengthGameState
+  gameState: WavelengthGameState
   onError: (message: string) => void
 }
 
@@ -13,7 +13,7 @@ export default function ResultScreen({ socket, gameState, onError }: ResultScree
   const seekerGuess = gameState.seekerGuess ?? '—'
 
   const handlePlayAgain = () => {
-    socket.emit('wvl:play-again', (response?: WavvelengthAck) => {
+    socket.emit('wvl:play-again', (response?: WavelengthAck) => {
       if (response?.error) {
         onError(response.error)
       }
@@ -21,7 +21,7 @@ export default function ResultScreen({ socket, gameState, onError }: ResultScree
   }
 
   const handleEndGame = () => {
-    socket.emit('wvl:end-game', (response?: WavvelengthAck) => {
+    socket.emit('wvl:end-game', (response?: WavelengthAck) => {
       if (response?.error) {
         onError(response.error)
       }

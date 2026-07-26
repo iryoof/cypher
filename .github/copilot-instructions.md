@@ -84,7 +84,7 @@ cypher/
 
 ### Phase 4: Deployment
 - [ ] GitHub repository setup
-- [ ] Vercel/Render deployment
+- [ ] GitHub Pages (frontend) / Render (backend) deployment
 - [ ] Production env vars
 
 ## Frontend Development
@@ -145,8 +145,8 @@ Key flows:
 
 - [ ] Environment variables set up
 - [ ] GitHub repo public
-- [ ] Frontend deployed to Vercel
-- [ ] Backend deployed to Render/Railway
+- [ ] Frontend deployed to GitHub Pages
+- [ ] Backend deployed to Render
 - [ ] WebSocket connection working
 - [ ] Archive storage configured
 - [ ] Mobile tested on device

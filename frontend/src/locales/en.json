@@ -41,9 +41,9 @@
   "rejoinRunningGame": "Rejoin running game",
   "reconnectNow": "Reconnect",
   "reconnecting": "Connecting...",
-  "wavvelength": "Wavelength",
+  "wavelength": "Wavelength",
   "numberGuessingGame": "Number Guessing Game",
-  "wavvelengthDescription": "Guess the number through questions",
+  "wavelengthDescription": "Guess the number through questions",
   "pleaseEnterNickname": "Please enter a nickname",
   "pleaseEnterCode": "Please enter a code"
 }

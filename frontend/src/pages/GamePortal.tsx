@@ -66,9 +66,9 @@ export default function GamePortal() {
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 group-hover:from-cyan-500/20 group-hover:to-blue-500/20 transition-all duration-300" />
             <div className="relative z-10">
               <div className="text-5xl mb-4">🌊</div>
-              <h2 className="text-3xl font-bold mb-2 text-white">{t('wavvelength')}</h2>
+              <h2 className="text-3xl font-bold mb-2 text-white">{t('wavelength')}</h2>
               <p className="text-white/80 mb-4">{t('numberGuessingGame')}</p>
-              <p className="text-sm text-white/60">{t('wavvelengthDescription')}</p>
+              <p className="text-sm text-white/60">{t('wavelengthDescription')}</p>
               <div className="mt-6 inline-block px-4 py-2 bg-cyan-500/30 rounded-lg text-sm text-cyan-300 group-hover:bg-cyan-500/50 transition-colors">
                 {t('play')}
               </div>

@@ -1,10 +1,10 @@
 ﻿import { useState } from 'react'
 import type { Socket } from 'socket.io-client'
-import type { WavvelengthAck, WavvelengthLobbyState } from './types'
+import type { WavelengthAck, WavelengthLobbyState } from './types'
 
 interface VotingScreenProps {
   socket: Socket
-  lobby: WavvelengthLobbyState
+  lobby: WavelengthLobbyState
   selfPlayerId: string | null
   onError: (message: string) => void
 }
@@ -30,7 +30,7 @@ export default function VotingScreen({ socket, lobby, selfPlayerId, onError }: V
     }
 
     setLoading(true)
-    socket.emit('wvl:vote', selectedNumber, (response?: WavvelengthAck) => {
+    socket.emit('wvl:vote', selectedNumber, (response?: WavelengthAck) => {
       setLoading(false)
       if (response?.error) {
         onError(response.error)

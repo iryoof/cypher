@@ -2,7 +2,7 @@
 import GamePortal from './pages/GamePortal'
 import CypherGame from './pages/CypherGame'
 import WerBinIchGame from './pages/WerBinIchGame'
-import WavvelengthGame from './pages/WavvelengthGame'
+import WavelengthGame from './pages/WavelengthGame'
 
 export default function Root() {
   return (
@@ -11,8 +11,9 @@ export default function Root() {
         <Route path="/" element={<GamePortal />} />
         <Route path="/cypher/*" element={<CypherGame />} />
         <Route path="/werbinich/*" element={<WerBinIchGame />} />
-        <Route path="/wavelength/*" element={<WavvelengthGame />} />
-        <Route path="/wavvelength/*" element={<WavvelengthGame />} />
+        <Route path="/wavelength/*" element={<WavelengthGame />} />
+        {/* Legacy misspelled path, kept so older links keep working. */}
+        <Route path="/wavvelength/*" element={<Navigate to="/wavelength" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
