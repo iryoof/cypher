@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import '../styles/globals.css'
-
-// ── Grid data ────────────────────────────────────────────────────────────────
-// null  = schwarzes Feld
-// clue  = Hinweis-Feld (creme, mit Text + Pfeil)
-// answer = Eingabe-Feld
 
 type ClueEntry = { text: string; dir: 'right' | 'down' }
 type CellDef =
@@ -57,7 +51,7 @@ const G: CellDef[][] = [
     { type: 'answer' },
     B,
     { type: 'clue', entries: [{ text: 'italienischer Priestertitel', dir: 'right' }] },
-    { type: 'clue', entries: [{ text: 'Stelle eines Verbrechens', dir: 'right' }] },
+    { type: 'clue', entries: [{ text: 'Stelle eines Verbrechens', dir: 'down' }] },
     { type: 'answer' },
     { type: 'answer' },
     { type: 'clue', entries: [{ text: 'Düsseldorfer Flaniermeile', dir: 'right' }] },
@@ -128,19 +122,14 @@ const G: CellDef[][] = [
 
 const ROWS = G.length
 const COLS = G[0].length
-
 const key = (r: number, c: number) => `${r},${c}`
-
-// ── Component ────────────────────────────────────────────────────────────────
 
 export default function KreuzwortraetselGame() {
   const [letters, setLetters] = useState<Record<string, string>>({})
   const [cursor, setCursor] = useState<[number, number] | null>(null)
   const inputsRef = useRef<Map<string, HTMLInputElement>>(new Map())
 
-  useEffect(() => {
-    document.title = 'Kreuzworträtsel'
-  }, [])
+  useEffect(() => { document.title = 'Kreuzworträtsel' }, [])
 
   const focusCell = useCallback((r: number, c: number) => {
     const el = inputsRef.current.get(key(r, c))
@@ -205,17 +194,13 @@ export default function KreuzwortraetselGame() {
 
   const clearAll = () => setLetters({})
 
-  // ── Cell renderers ──────────────────────────────────────────────────────
-
-  const CELL_SIZE = 'min(9vw, 62px)'
+  const CS = 'min(9.5vw, 64px)'
 
   const renderCell = (cell: CellDef, r: number, c: number) => {
     const id = key(r, c)
 
     if (cell === null) {
-      return (
-        <div key={id} style={{ width: CELL_SIZE, height: CELL_SIZE, background: '#050505', flexShrink: 0 }} />
-      )
+      return <div key={id} style={{ width: CS, height: CS, background: '#1a1a1a', flexShrink: 0 }} />
     }
 
     if (cell.type === 'clue') {
@@ -223,25 +208,26 @@ export default function KreuzwortraetselGame() {
       const sorted = [...cell.entries].sort((a) => a.dir === 'down' ? -1 : 1)
       return (
         <div key={id} style={{
-          width: CELL_SIZE, height: CELL_SIZE, flexShrink: 0,
-          background: '#f0ede2', border: '2px solid #1a1a1a',
+          width: CS, height: CS, flexShrink: 0,
+          background: '#e8e4d0',
+          border: '1px solid #555',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           userSelect: 'none', cursor: 'default',
         }}>
           {sorted.map((entry, i) => (
             <div key={i} style={{
               flex: 1,
-              borderBottom: hasBoth && i === 0 ? '1px solid #ccc9b5' : 'none',
+              borderBottom: hasBoth && i === 0 ? '1px solid #bbb8a0' : 'none',
               padding: '2px 3px',
               display: 'flex', flexDirection: 'column', justifyContent: 'center',
               position: 'relative',
-              fontSize: 'min(1.3vw, 7px)',
-              fontWeight: 700, color: '#111', lineHeight: 1.2,
+              fontSize: 'clamp(5px, 1.2vw, 7px)',
+              fontWeight: 700, color: '#1a1a1a', lineHeight: 1.15,
             }}>
               <span style={{ paddingRight: '10px' }}>{entry.text}</span>
               <span style={{
                 position: 'absolute', bottom: 2, right: 3,
-                fontSize: 'min(1.8vw, 10px)', fontWeight: 900,
+                fontSize: 'clamp(7px, 1.6vw, 10px)', fontWeight: 900, color: '#1a1a1a',
               }}>
                 {entry.dir === 'right' ? '▶' : '▼'}
               </span>
@@ -251,10 +237,9 @@ export default function KreuzwortraetselGame() {
       )
     }
 
-    // answer cell
     const isCursor = cursor?.[0] === r && cursor?.[1] === c
     return (
-      <div key={id} style={{ width: CELL_SIZE, height: CELL_SIZE, flexShrink: 0, position: 'relative' }}>
+      <div key={id} style={{ width: CS, height: CS, flexShrink: 0 }}>
         <input
           ref={el => {
             if (el) inputsRef.current.set(id, el)
@@ -269,13 +254,13 @@ export default function KreuzwortraetselGame() {
           onChange={() => {}}
           style={{
             width: '100%', height: '100%',
-            border: `2px solid ${isCursor ? '#3b82f6' : '#aaa'}`,
+            border: `1px solid ${isCursor ? '#2563eb' : '#555'}`,
             background: isCursor ? '#dbeafe' : '#fff',
             textAlign: 'center',
-            fontSize: 'min(4vw, 20px)', fontWeight: 700,
+            fontSize: 'clamp(14px, 4vw, 22px)', fontWeight: 700,
             color: '#111', textTransform: 'uppercase',
             outline: 'none', caretColor: 'transparent', cursor: 'pointer',
-            transition: 'background 0.1s, border-color 0.1s',
+            boxSizing: 'border-box',
           }}
         />
       </div>
@@ -283,17 +268,23 @@ export default function KreuzwortraetselGame() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#111', color: '#fff', fontFamily: 'sans-serif' }}>
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
+    <div style={{ minHeight: '100vh', background: '#f5f4f0', fontFamily: 'Georgia, serif' }}>
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '28px 16px' }}>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <Link to="/" style={{ color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <Link to="/" style={{ color: '#666', textDecoration: 'none', fontSize: 13, fontFamily: 'sans-serif' }}>
             ← Zurück
           </Link>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Kreuzworträtsel</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#111', letterSpacing: '0.02em' }}>
+            Kreuzworträtsel
+          </h1>
           <button
             onClick={clearAll}
-            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.5)', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+            style={{
+              background: '#fff', border: '1px solid #bbb', color: '#555',
+              borderRadius: 4, padding: '4px 10px', fontSize: 12,
+              cursor: 'pointer', fontFamily: 'sans-serif',
+            }}
           >
             Leeren
           </button>
@@ -302,17 +293,17 @@ export default function KreuzwortraetselGame() {
         <div style={{ overflowX: 'auto' }}>
           <div style={{
             display: 'inline-flex', flexDirection: 'column',
-            gap: 2, border: '2px solid #1a1a1a', background: '#1a1a1a',
+            border: '2px solid #1a1a1a', gap: 0,
           }}>
             {G.map((row, r) => (
-              <div key={r} style={{ display: 'flex', gap: 2 }}>
+              <div key={r} style={{ display: 'flex' }}>
                 {row.map((cell, c) => renderCell(cell, r, c))}
               </div>
             ))}
           </div>
         </div>
 
-        <p style={{ marginTop: 20, color: 'rgba(255,255,255,0.25)', fontSize: 12, textAlign: 'center' }}>
+        <p style={{ marginTop: 16, color: '#999', fontSize: 12, textAlign: 'center', fontFamily: 'sans-serif' }}>
           Pfeiltasten zum Navigieren · Buchstaben zum Ausfüllen
         </p>
       </div>
