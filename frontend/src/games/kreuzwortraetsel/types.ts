@@ -42,6 +42,36 @@ export interface Puzzle {
   words: PlacedWord[]
 }
 
+// ── German-style grid (clues inside cells) ──────────────────────────────────
+
+export interface ClueCellEntry {
+  clue: string
+  direction: Direction
+  wordId: number
+}
+
+export interface ClueGridCell {
+  kind: 'clue'
+  row: number
+  col: number
+  entries: ClueCellEntry[]
+}
+
+export interface AnswerGridCell extends Cell {
+  kind: 'answer'
+}
+
+export type GermanCell = ClueGridCell | AnswerGridCell | null
+
+export interface GermanPuzzle {
+  rows: number
+  cols: number
+  cells: GermanCell[][]
+  words: PlacedWord[]
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 export type Difficulty = 'klein' | 'mittel' | 'gross'
 
 export interface DifficultyPreset {
