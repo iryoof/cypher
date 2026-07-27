@@ -11,7 +11,7 @@ type ClueEntry = { text: string; dir: 'right' | 'down' }
 type CellDef =
   | null
   | { type: 'clue'; entries: ClueEntry[] }
-  | { type: 'answer'; num?: number; flag?: boolean }
+  | { type: 'answer' }
 
 const B = null
 
@@ -25,7 +25,7 @@ const G: CellDef[][] = [
     { type: 'clue', entries: [{ text: 'Auskunft', dir: 'down' }] },
     B,
     { type: 'clue', entries: [{ text: 'lateinisch: ich liebe', dir: 'down' }] },
-    { type: 'answer', num: 7 },
+    { type: 'answer' },
     { type: 'clue', entries: [{ text: 'deutsche Spielkarte', dir: 'down' }] },
   ],
   // Row 1
@@ -33,7 +33,7 @@ const G: CellDef[][] = [
     { type: 'clue', entries: [{ text: 'Verzierung an Bauwerken', dir: 'down' }] },
     B,
     { type: 'answer' },
-    { type: 'answer', num: 8 },
+    { type: 'answer' },
     { type: 'answer' },
     B,
     { type: 'clue', entries: [{ text: 'ab jetzt', dir: 'right' }] },
@@ -44,17 +44,17 @@ const G: CellDef[][] = [
   [
     { type: 'clue', entries: [{ text: 'japanischer Kaisertitel', dir: 'down' }] },
     B,
-    { type: 'answer', num: 2 },
+    { type: 'answer' },
     { type: 'clue', entries: [{ text: 'weibliche Verwandte', dir: 'right' }] },
     { type: 'answer' },
-    { type: 'answer', num: 9 },
+    { type: 'answer' },
     { type: 'clue', entries: [{ text: 'rote Filzkappe', dir: 'right' }] },
     { type: 'answer' },
-    { type: 'answer', num: 5 },
+    { type: 'answer' },
   ],
   // Row 3
   [
-    { type: 'answer', num: 3, flag: true },
+    { type: 'answer' },
     B,
     { type: 'clue', entries: [{ text: 'italienischer Priestertitel', dir: 'right' }] },
     { type: 'clue', entries: [{ text: 'Stelle eines Verbrechens', dir: 'right' }] },
@@ -70,7 +70,7 @@ const G: CellDef[][] = [
     { type: 'answer' },
     { type: 'answer' },
     { type: 'answer' },
-    { type: 'answer', num: 1 },
+    { type: 'answer' },
     { type: 'answer' },
     { type: 'answer' },
     { type: 'answer' },
@@ -90,7 +90,7 @@ const G: CellDef[][] = [
   ],
   // Row 6
   [
-    { type: 'answer', num: 4, flag: true },
+    { type: 'answer' },
     B,
     { type: 'answer' },
     { type: 'clue', entries: [{ text: 'Wasserstelle in der Wüste', dir: 'right' }] },
@@ -108,7 +108,7 @@ const G: CellDef[][] = [
     { type: 'answer' },
     { type: 'answer' },
     { type: 'answer' },
-    { type: 'answer', num: 6 },
+    { type: 'answer' },
     { type: 'answer' },
     { type: 'answer' },
   ],
@@ -255,15 +255,6 @@ export default function KreuzwortraetselGame() {
     const isCursor = cursor?.[0] === r && cursor?.[1] === c
     return (
       <div key={id} style={{ width: CELL_SIZE, height: CELL_SIZE, flexShrink: 0, position: 'relative' }}>
-        {(cell.flag || cell.num !== undefined) && (
-          <span style={{
-            position: 'absolute', top: 2, left: 3, zIndex: 10,
-            fontSize: 'min(1.2vw, 7px)', fontWeight: 700, color: '#444',
-            pointerEvents: 'none', lineHeight: 1,
-          }}>
-            {cell.flag ? `⚑${cell.num}` : cell.num}
-          </span>
-        )}
         <input
           ref={el => {
             if (el) inputsRef.current.set(id, el)
