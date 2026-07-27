@@ -243,33 +243,42 @@ export default function Game({ puzzle: rawPuzzle, onNewPuzzle, onBackToMenu }: G
     setWrongCells(new Set())
   }, [])
 
+  const btn = (label: string, onClick: () => void, danger = false) => (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: danger ? '#fee2e2' : '#fff',
+        border: `1px solid ${danger ? '#fca5a5' : '#ccc'}`,
+        color: danger ? '#b91c1c' : '#333',
+        borderRadius: 4, padding: '6px 14px', fontSize: 13,
+        cursor: 'pointer', fontFamily: 'sans-serif',
+      }}
+    >
+      {label}
+    </button>
+  )
+
   return (
-    <div className="min-h-screen px-4 py-6">
-      <div className="mx-auto w-full max-w-5xl space-y-5">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="section-kicker">Kreuzworträtsel</p>
-            <h1 className="hero-title text-[clamp(1.4rem,5vw,2.2rem)] leading-none mt-1">
-              {isComplete ? 'Gelöst' : 'Rätsel'}
-            </h1>
-          </div>
-          <div className="metric-strip flex items-center gap-3 rounded-lg px-3 py-2">
-            <span className="font-mono-ui text-xs text-white/60">
-              {solvedWordIds.size}/{puzzle.words.length} Wörter
-            </span>
-            <span className="font-mono-ui text-xs text-white/40">
-              {filledCount}/{totalCells} Felder
-            </span>
-          </div>
-        </header>
+    <div style={{ minHeight: '100vh', background: '#f5f4f0', fontFamily: 'Georgia, serif' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: '#111' }}>
+            {isComplete ? 'Gelöst! 🎉' : 'Kreuzworträtsel'}
+          </h1>
+          <span style={{ fontSize: 13, color: '#888', fontFamily: 'sans-serif' }}>
+            {solvedWordIds.size}/{puzzle.words.length} Wörter · {filledCount}/{totalCells} Felder
+          </span>
+        </div>
 
         {isComplete && (
-          <div className="alert-surface rounded-lg px-4 py-3 text-sm text-emerald-200">
+          <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 6, padding: '10px 16px', marginBottom: 16, color: '#166534', fontSize: 14, fontFamily: 'sans-serif' }}>
             Alle Wörter stehen. Glückwunsch!
           </div>
         )}
 
-        <div className="surface-panel rounded-xl p-3 sm:p-5">
+        <div style={{ overflowX: 'auto', marginBottom: 16 }}>
           <Grid
             puzzle={puzzle}
             letters={letters}
@@ -285,39 +294,27 @@ export default function Game({ puzzle: rawPuzzle, onNewPuzzle, onBackToMenu }: G
         </div>
 
         {activeWord && (
-          <div className="surface-panel-strong rounded-xl px-4 py-3">
-            <p className="section-kicker mb-1">
-              {activeWord.number} {activeWord.direction === 'across' ? 'waagerecht' : 'senkrecht'}
-              {' · '}
-              {activeWord.answer.length} Buchstaben
-            </p>
-            <p className="text-white/90">{activeWord.clue}</p>
+          <div style={{ background: '#fff', border: '1px solid #ccc', borderRadius: 6, padding: '10px 14px', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: '#888', fontFamily: 'sans-serif', marginBottom: 4 }}>
+              {activeWord.number} {activeWord.direction === 'across' ? 'waagerecht' : 'senkrecht'} · {activeWord.answer.length} Buchstaben
+            </div>
+            <div style={{ fontSize: 15, color: '#111' }}>{activeWord.clue}</div>
             <button
               type="button"
               onClick={() => revealWord(activeWord)}
-              className="action-secondary mt-3 rounded-lg px-3 py-1.5 text-xs"
+              style={{ marginTop: 8, background: '#f0f0f0', border: '1px solid #ccc', borderRadius: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'sans-serif', color: '#444' }}
             >
-              Dieses Wort lösen
+              Wort lösen
             </button>
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={check} className="action-secondary rounded-lg px-4 py-2 text-sm">
-            Prüfen
-          </button>
-          <button type="button" onClick={revealAll} className="action-danger rounded-lg px-4 py-2 text-sm">
-            Gesamtlösung
-          </button>
-          <button type="button" onClick={clearAll} className="action-ghost rounded-lg px-4 py-2 text-sm">
-            Leeren
-          </button>
-          <button type="button" onClick={onNewPuzzle} className="action-primary rounded-lg px-4 py-2 text-sm">
-            Neues Rätsel
-          </button>
-          <button type="button" onClick={onBackToMenu} className="action-ghost rounded-lg px-4 py-2 text-sm">
-            Menü
-          </button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {btn('Prüfen', check)}
+          {btn('Gesamtlösung', revealAll, true)}
+          {btn('Leeren', clearAll)}
+          {btn('Neues Rätsel', onNewPuzzle)}
+          {btn('Menü', onBackToMenu)}
         </div>
       </div>
     </div>

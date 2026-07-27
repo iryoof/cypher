@@ -60,11 +60,12 @@ export default function Grid({
         aria-label="Kreuzworträtsel"
         style={{
           display: 'grid',
-          gap: 2,
+          gap: 0,
           gridTemplateColumns: `repeat(${puzzle.cols}, minmax(${MIN_CELL}, 1fr))`,
           width: `min(100%, ${puzzle.cols * 2.8}rem)`,
-          minWidth: `calc(${puzzle.cols} * (${MIN_CELL} + 2px))`,
+          minWidth: `calc(${puzzle.cols} * ${MIN_CELL})`,
           margin: '0 auto',
+          border: '2px solid #1a1a1a',
         }}
       >
         {puzzle.cells.map((row, rowIndex) =>
@@ -75,7 +76,7 @@ export default function Grid({
               return (
                 <div
                   key={id}
-                  style={{ aspectRatio: '1', background: '#060606', borderRadius: 2 }}
+                  style={{ aspectRatio: '1', background: '#1a1a1a' }}
                 />
               )
             }
@@ -84,9 +85,8 @@ export default function Grid({
               const hasBoth = cell.entries.length >= 2
               const cellStyle: React.CSSProperties = {
                 aspectRatio: '1',
-                background: '#f0ede2',
-                border: '2px solid #2a2a2a',
-                borderRadius: 2,
+                background: '#e8e4d0',
+                border: '1px solid #555',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
@@ -96,23 +96,24 @@ export default function Grid({
               const entryStyle = (borderBottom: boolean): React.CSSProperties => ({
                 flex: 1,
                 padding: '2px 3px',
-                borderBottom: borderBottom ? '1px solid #ccc9b5' : 'none',
+                borderBottom: borderBottom ? '1px solid #bbb8a0' : 'none',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
                 position: 'relative',
-                fontSize: 'clamp(4.5px, 1.4vw, 7px)',
+                fontSize: 'clamp(4.5px, 1.3vw, 7px)',
                 fontWeight: 700,
-                color: '#111',
+                color: '#1a1a1a',
                 lineHeight: 1.2,
               })
               const arrowStyle: React.CSSProperties = {
                 position: 'absolute',
                 bottom: 2,
                 right: 3,
-                fontSize: 'clamp(6px, 1.8vw, 10px)',
+                fontSize: 'clamp(6px, 1.6vw, 10px)',
                 fontWeight: 900,
                 lineHeight: 1,
+                color: '#1a1a1a',
               }
 
               return (
@@ -136,17 +137,17 @@ export default function Grid({
             const isWrong = wrongCells.has(id)
 
             let bg = '#ffffff'
-            let border = '2px solid #999'
+            let border = '1px solid #555'
             let color = '#111'
 
             if (isWrong) {
-              bg = '#fff0f0'; border = '2px solid #f87171'; color = '#b91c1c'
+              bg = '#fff0f0'; border = '1px solid #f87171'; color = '#b91c1c'
             } else if (isRevealed) {
-              bg = '#f0fdf4'; border = '2px solid #4ade80'; color = '#166534'
+              bg = '#f0fdf4'; border = '1px solid #4ade80'; color = '#166534'
             } else if (isCursor) {
-              bg = '#dbeafe'; border = '2px solid #3b82f6'
+              bg = '#dbeafe'; border = '1px solid #2563eb'
             } else if (isActive) {
-              bg = '#f0f4ff'; border = '2px solid #93c5fd'
+              bg = '#eff6ff'; border = '1px solid #93c5fd'
             }
 
             return (
