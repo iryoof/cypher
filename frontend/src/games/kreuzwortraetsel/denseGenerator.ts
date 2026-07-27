@@ -2,7 +2,6 @@ import type { Cell, Direction, PlacedWord, Puzzle, WordEntry } from './types'
 
 const key = (r: number, c: number) => `${r},${c}`
 
-
 function groupByLength(pool: WordEntry[], rng: () => number): Map<number, WordEntry[]> {
   const m = new Map<number, WordEntry[]>()
   for (const w of pool) {
@@ -17,33 +16,45 @@ function findWord(
   byLen: Map<number, WordEntry[]>,
   len: number,
   pattern: (string | null)[],
-  used: Set<string>
+  used: Set<string>,
+  allowReuse = false
 ): WordEntry | null {
   const candidates = byLen.get(len)
   if (!candidates) return null
   for (const w of candidates) {
-    if (used.has(w.answer)) continue
+    if (!allowReuse && used.has(w.answer)) continue
     let ok = true
     for (let i = 0; i < len; i++) {
       if (pattern[i] !== null && pattern[i] !== w.answer[i]) { ok = false; break }
     }
     if (ok) return w
   }
+  if (!allowReuse) return findWord(byLen, len, pattern, used, true)
   return null
 }
 
 /**
+ * Valid row partitions for N=11 word-grid columns.
+ * k words with single-null separators between them.
+ * Invariant: sum(lengths) + (k-1) = 11, every length in [3,9].
+ *   k=2: sum=10 → (3,7),(4,6),(5,5),(6,4),(7,3)
+ *   k=3: sum=9  → (3,3,3)
+ */
+const ROW_PARTITIONS: number[][] = [
+  [4, 6], [5, 5], [6, 4],
+  [3, 7], [7, 3],
+  [3, 3, 3],
+]
+
+/**
  * Generates a dense German crossword.
  *
- * Phase 1: fill each row completely with across words separated by null
- *          separators. Words always go to the last column — no trailing null.
+ * Phase 1: fill each row completely using a pre-validated partition of word lengths.
+ *          Every null is a single-cell separator immediately before the next word →
+ *          toGermanStyle converts ALL nulls to clue cells → no orphaned black cells.
  *
- * Phase 2: for every contiguous run of answer cells in each column (length ≥ 3)
- *          try to place a down word that matches the already-set letters.
- *
- * Because every null in phase 1 is immediately before the next word start it
- * becomes a right-pointing clue cell in toGermanStyle. There are no isolated
- * null cells, so the final German grid has no black cells.
+ * Phase 2: for every contiguous column run of answer cells (length ≥ 3)
+ *          place a down word that matches the already-set letters.
  */
 export function generateDensePuzzle(pool: WordEntry[], rng?: () => number): Puzzle {
   const random = rng ?? Math.random
@@ -51,60 +62,51 @@ export function generateDensePuzzle(pool: WordEntry[], rng?: () => number): Puzz
 
   const byLen = groupByLength(pool, random)
 
-  // grid[r][c] = letter or null (null = separator / future clue cell)
   const grid: (string | null)[][] = Array.from({ length: N }, () => Array(N).fill(null))
-
   const placements: { word: WordEntry; row: number; col: number; direction: Direction }[] = []
   const used = new Set<string>()
 
   // ── Phase 1: across words ──────────────────────────────────────────────────
   for (let r = 0; r < N; r++) {
-    let col = 0
-    let safety = 0
-    while (col < N && safety++ < 50) {
-      const remaining = N - col
+    const shuffled = [...ROW_PARTITIONS].sort(() => random() - 0.5)
 
-      // Determine which word lengths are valid here:
-      // remaining = len  (word fills exactly to the end), OR
-      // remaining = len + 1 + next, where next ≥ 3  →  remaining - len ≥ 4
-      const validLengths: number[] = []
-      for (let len = 3; len <= Math.min(remaining, 9); len++) {
-        const after = remaining - len
-        if (after === 0 || after >= 4) validLengths.push(len)
+    for (const partition of shuffled) {
+      // Dry-run: check if we can find words for each slot
+      const tempUsed = new Set(used)
+      const found: WordEntry[] = []
+      let ok = true
+
+      for (const len of partition) {
+        const w = findWord(byLen, len, Array(len).fill(null), tempUsed)
+        if (!w) { ok = false; break }
+        found.push(w)
+        tempUsed.add(w.answer)
       }
-      // prefer longer words first for density
-      validLengths.sort((a, b) => b - a)
 
-      let placed = false
-      for (const len of validLengths) {
-        const pat = Array.from({ length: len }, (_, i) => grid[r][col + i])
-        const w = findWord(byLen, len, pat, used)
-        if (!w) continue
-        for (let i = 0; i < len; i++) grid[r][col + i] = w.answer[i]
+      if (!ok) continue
+
+      // Commit: write words into the grid
+      let col = 0
+      for (let i = 0; i < partition.length; i++) {
+        const w = found[i]
+        for (let j = 0; j < w.answer.length; j++) grid[r][col + j] = w.answer[j]
         placements.push({ word: w, row: r, col, direction: 'across' })
         used.add(w.answer)
-        col += len
-        if (col < N) col++ // leave null separator
-        placed = true
-        break
+        col += w.answer.length
+        if (i < partition.length - 1) col++ // single null separator
       }
-
-      if (!placed) {
-        // can't place — advance past this cell
-        col++
-      }
+      break
     }
+    // Extremely unlikely: all partitions failed → row stays null
   }
 
   // ── Phase 2: down words ────────────────────────────────────────────────────
   for (let c = 0; c < N; c++) {
     let row = 0
     while (row < N) {
-      // skip nulls
       while (row < N && grid[row][c] === null) row++
       if (row >= N) break
       const start = row
-      // find end of answer run
       while (row < N && grid[row][c] !== null) row++
       const len = row - start
       if (len < 3) continue
@@ -112,18 +114,12 @@ export function generateDensePuzzle(pool: WordEntry[], rng?: () => number): Puzz
       const pattern = Array.from({ length: len }, (_, i) => grid[start + i][c])
       const w = findWord(byLen, len, pattern, used)
       if (!w) continue
-      // update any still-null cells in this column run (shouldn't happen
-      // since phase 1 filled them, but just in case)
-      for (let i = 0; i < len; i++) {
-        if (grid[start + i][c] === null) grid[start + i][c] = w.answer[i]
-      }
       placements.push({ word: w, row: start, col: c, direction: 'down' })
       used.add(w.answer)
     }
   }
 
   // ── Build Puzzle ───────────────────────────────────────────────────────────
-  // Assign clue numbers (row-major)
   const numMap = new Map<string, number>()
   let counter = 0
   for (let r = 0; r < N; r++)
