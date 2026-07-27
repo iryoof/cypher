@@ -2,153 +2,154 @@ import type { Cell, Direction, PlacedWord, Puzzle, WordEntry } from './types'
 
 const key = (r: number, c: number) => `${r},${c}`
 
-function shuffle<T>(arr: T[], rng: () => number): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
+
+function groupByLength(pool: WordEntry[], rng: () => number): Map<number, WordEntry[]> {
+  const m = new Map<number, WordEntry[]>()
+  for (const w of pool) {
+    if (!m.has(w.answer.length)) m.set(w.answer.length, [])
+    m.get(w.answer.length)!.push(w)
   }
-  return a
+  for (const arr of m.values()) arr.sort(() => rng() - 0.5)
+  return m
 }
 
-function isValidBlacks(blacks: Set<string>, n: number): boolean {
-  for (let r = 0; r < n; r++) {
-    let run = 0
-    for (let c = 0; c <= n; c++) {
-      if (c === n || blacks.has(key(r, c))) { if (run === 1 || run === 2) return false; run = 0 }
-      else run++
+function findWord(
+  byLen: Map<number, WordEntry[]>,
+  len: number,
+  pattern: (string | null)[],
+  used: Set<string>
+): WordEntry | null {
+  const candidates = byLen.get(len)
+  if (!candidates) return null
+  for (const w of candidates) {
+    if (used.has(w.answer)) continue
+    let ok = true
+    for (let i = 0; i < len; i++) {
+      if (pattern[i] !== null && pattern[i] !== w.answer[i]) { ok = false; break }
     }
+    if (ok) return w
   }
-  for (let c = 0; c < n; c++) {
-    let run = 0
-    for (let r = 0; r <= n; r++) {
-      if (r === n || blacks.has(key(r, c))) { if (run === 1 || run === 2) return false; run = 0 }
-      else run++
-    }
-  }
-  return true
+  return null
 }
 
-function buildBlacks(n: number, target: number, rng: () => number): Set<string> {
-  const all = shuffle(
-    Array.from({ length: n * n }, (_, i) => key(Math.floor(i / n), i % n)),
-    rng
-  )
-  const blacks = new Set<string>()
-  for (const pos of all) {
-    if (blacks.size >= target) break
-    blacks.add(pos)
-    if (!isValidBlacks(blacks, n)) blacks.delete(pos)
-  }
-  return blacks
-}
-
-interface Slot {
-  direction: Direction
-  row: number
-  col: number
-  length: number
-  cells: string[]
-}
-
-function getSlots(n: number, blacks: Set<string>): Slot[] {
-  const slots: Slot[] = []
-  for (let r = 0; r < n; r++) {
-    let s = -1
-    for (let c = 0; c <= n; c++) {
-      const blk = c === n || blacks.has(key(r, c))
-      if (!blk && s === -1) s = c
-      else if (blk && s !== -1) {
-        const len = c - s
-        if (len >= 3) slots.push({ direction: 'across', row: r, col: s, length: len, cells: Array.from({ length: len }, (_, i) => key(r, s + i)) })
-        s = -1
-      }
-    }
-  }
-  for (let c = 0; c < n; c++) {
-    let s = -1
-    for (let r = 0; r <= n; r++) {
-      const blk = r === n || blacks.has(key(r, c))
-      if (!blk && s === -1) s = r
-      else if (blk && s !== -1) {
-        const len = r - s
-        if (len >= 3) slots.push({ direction: 'down', row: s, col: c, length: len, cells: Array.from({ length: len }, (_, i) => key(s + i, c)) })
-        s = -1
-      }
-    }
-  }
-  return slots
-}
-
+/**
+ * Generates a dense German crossword.
+ *
+ * Phase 1: fill each row completely with across words separated by null
+ *          separators. Words always go to the last column — no trailing null.
+ *
+ * Phase 2: for every contiguous run of answer cells in each column (length ≥ 3)
+ *          try to place a down word that matches the already-set letters.
+ *
+ * Because every null in phase 1 is immediately before the next word start it
+ * becomes a right-pointing clue cell in toGermanStyle. There are no isolated
+ * null cells, so the final German grid has no black cells.
+ */
 export function generateDensePuzzle(pool: WordEntry[], rng?: () => number): Puzzle {
   const random = rng ?? Math.random
-  const N = 11 // word grid; toGermanStyle adds 1 row+col → 12x12
+  const N = 11 // word-grid size; toGermanStyle adds 1 row+col → 12×12
 
-  // Group pool by word length, shuffled
-  const byLen = new Map<number, WordEntry[]>()
-  for (const w of pool) {
-    if (w.answer.length >= 3 && w.answer.length <= N) {
-      if (!byLen.has(w.answer.length)) byLen.set(w.answer.length, [])
-      byLen.get(w.answer.length)!.push(w)
-    }
-  }
-  for (const arr of byLen.values()) arr.sort(() => random() - 0.5)
+  const byLen = groupByLength(pool, random)
 
-  const blacks = buildBlacks(N, Math.round(N * N * 0.14), random)
-  const slots = getSlots(N, blacks)
+  // grid[r][c] = letter or null (null = separator / future clue cell)
+  const grid: (string | null)[][] = Array.from({ length: N }, () => Array(N).fill(null))
 
-  // Sort: shorter slots first (harder constraint — fewer matching words)
-  slots.sort((a, b) => a.length - b.length)
-
-  const filled = new Map<string, string>()
-  const placed: (PlacedWord & { _idx: number })[] = []
+  const placements: { word: WordEntry; row: number; col: number; direction: Direction }[] = []
   const used = new Set<string>()
-  let idCounter = 0
 
-  for (const slot of slots) {
-    const pattern = slot.cells.map(k => filled.get(k) ?? null)
-    const candidates = byLen.get(slot.length)
-    if (!candidates) continue
+  // ── Phase 1: across words ──────────────────────────────────────────────────
+  for (let r = 0; r < N; r++) {
+    let col = 0
+    let safety = 0
+    while (col < N && safety++ < 50) {
+      const remaining = N - col
 
-    for (const word of candidates) {
-      if (used.has(word.answer)) continue
-      let ok = true
-      for (let i = 0; i < word.answer.length; i++) {
-        if (pattern[i] !== null && pattern[i] !== word.answer[i]) { ok = false; break }
+      // Determine which word lengths are valid here:
+      // remaining = len  (word fills exactly to the end), OR
+      // remaining = len + 1 + next, where next ≥ 3  →  remaining - len ≥ 4
+      const validLengths: number[] = []
+      for (let len = 3; len <= Math.min(remaining, 9); len++) {
+        const after = remaining - len
+        if (after === 0 || after >= 4) validLengths.push(len)
       }
-      if (!ok) continue
+      // prefer longer words first for density
+      validLengths.sort((a, b) => b - a)
 
-      slot.cells.forEach((k, i) => { if (!filled.has(k)) filled.set(k, word.answer[i]) })
-      placed.push({ ...word, id: idCounter++, number: 0, row: slot.row, col: slot.col, direction: slot.direction, _idx: placed.length })
-      used.add(word.answer)
-      break
+      let placed = false
+      for (const len of validLengths) {
+        const pat = Array.from({ length: len }, (_, i) => grid[r][col + i])
+        const w = findWord(byLen, len, pat, used)
+        if (!w) continue
+        for (let i = 0; i < len; i++) grid[r][col + i] = w.answer[i]
+        placements.push({ word: w, row: r, col, direction: 'across' })
+        used.add(w.answer)
+        col += len
+        if (col < N) col++ // leave null separator
+        placed = true
+        break
+      }
+
+      if (!placed) {
+        // can't place — advance past this cell
+        col++
+      }
     }
   }
 
-  // Assign clue numbers (row-major scan)
+  // ── Phase 2: down words ────────────────────────────────────────────────────
+  for (let c = 0; c < N; c++) {
+    let row = 0
+    while (row < N) {
+      // skip nulls
+      while (row < N && grid[row][c] === null) row++
+      if (row >= N) break
+      const start = row
+      // find end of answer run
+      while (row < N && grid[row][c] !== null) row++
+      const len = row - start
+      if (len < 3) continue
+
+      const pattern = Array.from({ length: len }, (_, i) => grid[start + i][c])
+      const w = findWord(byLen, len, pattern, used)
+      if (!w) continue
+      // update any still-null cells in this column run (shouldn't happen
+      // since phase 1 filled them, but just in case)
+      for (let i = 0; i < len; i++) {
+        if (grid[start + i][c] === null) grid[start + i][c] = w.answer[i]
+      }
+      placements.push({ word: w, row: start, col: c, direction: 'down' })
+      used.add(w.answer)
+    }
+  }
+
+  // ── Build Puzzle ───────────────────────────────────────────────────────────
+  // Assign clue numbers (row-major)
   const numMap = new Map<string, number>()
   let counter = 0
   for (let r = 0; r < N; r++)
     for (let c = 0; c < N; c++)
-      if (placed.some(p => p.row === r && p.col === c))
+      if (placements.some(p => p.row === r && p.col === c))
         numMap.set(key(r, c), ++counter)
 
-  const words: PlacedWord[] = placed.map(p => ({ ...p, number: numMap.get(key(p.row, p.col)) ?? 0 }))
+  const words: PlacedWord[] = placements
+    .map((p, id) => ({ ...p.word, id, number: numMap.get(key(p.row, p.col)) ?? 0, row: p.row, col: p.col, direction: p.direction }))
     .sort((a, b) => a.number - b.number || (a.direction === 'across' ? -1 : 1))
+
+  const step = (d: Direction): [number, number] => d === 'across' ? [0, 1] : [1, 0]
 
   const cells: (Cell | null)[][] = Array.from({ length: N }, (_, r) =>
     Array.from({ length: N }, (_, c): Cell | null => {
-      if (blacks.has(key(r, c)) || !filled.has(key(r, c))) return null
+      if (grid[r][c] === null) return null
       const wordIds = words.filter(w => {
-        const dr = w.direction === 'down' ? 1 : 0
-        const dc = w.direction === 'across' ? 1 : 0
+        const [dr, dc] = step(w.direction)
         for (let i = 0; i < w.answer.length; i++)
           if (w.row + dr * i === r && w.col + dc * i === c) return true
         return false
       }).map(w => w.id)
       if (!wordIds.length) return null
       const owner = words.find(w => w.id === wordIds[0])!
-      const offset = owner.direction === 'across' ? c - owner.col : r - owner.row
+      const [dr] = step(owner.direction)
+      const offset = dr === 0 ? c - owner.col : r - owner.row
       return { row: r, col: c, solution: owner.answer[offset], number: numMap.get(key(r, c)) ?? null, wordIds }
     })
   )

@@ -187,7 +187,7 @@ export default function KreuzwortraetselGame() {
           <div style={{
             display: 'inline-grid',
             gridTemplateColumns: `repeat(${puzzle.cols}, ${CS})`,
-            border: '2px solid #222',
+            border: '1px solid #666',
             gap: 0,
           }}>
             {puzzle.cells.map((row, r) =>
@@ -195,7 +195,7 @@ export default function KreuzwortraetselGame() {
                 const id = cellKey(r, c)
 
                 if (!cell) return (
-                  <div key={id} style={{ width: CS, height: CS, background: '#1a1a1a' }} />
+                  <div key={id} style={{ width: CS, height: CS, background: '#e8e4d0', border: '1px solid #ccc', boxSizing: 'border-box' }} />
                 )
 
                 if (cell.kind === 'clue') {
