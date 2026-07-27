@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { generatePuzzle } from '../games/kreuzwortraetsel/generator'
+import { generateDensePuzzle } from '../games/kreuzwortraetsel/denseGenerator'
 import { toGermanStyle } from '../games/kreuzwortraetsel/german'
 import type { GermanPuzzle, AnswerGridCell, Direction, Position } from '../games/kreuzwortraetsel/types'
 import { buildPool } from '../games/kreuzwortraetsel/words'
@@ -10,8 +10,7 @@ const pool = buildPool()
 const cellKey = (r: number, c: number) => `${r},${c}`
 
 function newPuzzle(): GermanPuzzle {
-  const raw = generatePuzzle(pool, { maxSize: 12, targetWords: 22 })
-  return toGermanStyle(raw)
+  return toGermanStyle(generateDensePuzzle(pool))
 }
 
 export default function KreuzwortraetselGame() {
