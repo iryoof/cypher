@@ -22,11 +22,28 @@ function newPuzzle(): GermanPuzzle {
   return loadPuzzle(PUZZLES[i], pool)
 }
 
+/** Paper palette. The puzzle reads as a printed sheet laid on the dark page. */
+const PAPER = {
+  sheet: '#f2efe4',
+  clue: '#e4dfca',
+  clueLine: '#c9c3a8',
+  rule: '#2c2a24',
+  ink: '#1a1815',
+  answer: '#fffefa',
+  active: '#fdf1c8',
+  cursor: '#f6d97a',
+  wrong: '#f8cfc9',
+  wrongInk: '#8f1d12',
+  solved: '#d8e9d2',
+  solvedInk: '#2f5d29',
+}
+
 export default function KreuzwortraetselGame() {
   const [puzzle, setPuzzle] = useState<GermanPuzzle>(() => newPuzzle())
   const [letters, setLetters] = useState<Record<string, string>>({})
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
   const [wrong, setWrong] = useState<Set<string>>(new Set())
+  const [checked, setChecked] = useState<{ wrong: number; blank: number } | null>(null)
   const [cursor, setCursor] = useState<Position | null>(null)
   const [activeWordId, setActiveWordId] = useState<number | null>(null)
   const inputs = useRef(new Map<string, HTMLInputElement>())
@@ -42,14 +59,31 @@ export default function KreuzwortraetselGame() {
     if (cursor) inputs.current.get(cellKey(cursor.row, cursor.col))?.focus()
   }, [cursor])
 
-  const generate = useCallback(() => {
-    setPuzzle(newPuzzle())
+  const answerCells = useMemo(() => {
+    const out: AnswerGridCell[] = []
+    for (const row of puzzle.cells)
+      for (const cell of row)
+        if (cell?.kind === 'answer') out.push(cell)
+    return out
+  }, [puzzle])
+
+  const filledCount = answerCells.filter(c => letters[cellKey(c.row, c.col)]).length
+  const isComplete =
+    answerCells.length > 0 &&
+    answerCells.every(c => letters[cellKey(c.row, c.col)] === c.solution)
+
+  const reset = useCallback((next: GermanPuzzle | null) => {
+    if (next) setPuzzle(next)
     setLetters({})
     setRevealed(new Set())
     setWrong(new Set())
+    setChecked(null)
     setCursor(null)
     setActiveWordId(null)
   }, [])
+
+  const generate = useCallback(() => reset(newPuzzle()), [reset])
+  const clearAll = useCallback(() => reset(null), [reset])
 
   const activeWord = useMemo(
     () => puzzle.words.find(w => w.id === activeWordId) ?? null,
@@ -92,7 +126,13 @@ export default function KreuzwortraetselGame() {
   }, [activeWord])
 
   const handleLetter = useCallback((cell: AnswerGridCell, raw: string): Position | null => {
-    const ch = raw.toUpperCase().replace(/Ä/g, 'A').replace(/Ö/g, 'O').replace(/Ü/g, 'U').replace(/[^A-Z]/g, '').slice(0, 1)
+    // Solutions spell umlauts out (AE/OE/UE), so a typed 'Ä' becomes the 'A' it
+    // starts with rather than a letter that could never match.
+    const ch = raw
+      .toUpperCase()
+      .replace(/Ä/g, 'A').replace(/Ö/g, 'O').replace(/Ü/g, 'U').replace(/ß/g, 'S')
+      .replace(/[^A-Z]/g, '')
+      .slice(0, 1)
     if (!ch) return null
     const id = cellKey(cell.row, cell.col)
     if (!revealed.has(id)) {
@@ -127,9 +167,10 @@ export default function KreuzwortraetselGame() {
     let col = cell.col + (dir === 'across' ? delta : 0)
     while (row >= 0 && row < puzzle.rows && col >= 0 && col < puzzle.cols) {
       const t = puzzle.cells[row]?.[col]
-      if (!t) break
-      if (t.kind === 'answer') {
-        const match = (t as AnswerGridCell).wordIds.map(id => puzzle.words.find(w => w.id === id)).find(w => w?.direction === dir)
+      if (t?.kind === 'answer') {
+        const match = t.wordIds
+          .map(id => puzzle.words.find(w => w.id === id))
+          .find(w => w?.direction === dir)
         if (match) setActiveWordId(match.id)
         setCursor({ row, col })
         return { row, col }
@@ -141,158 +182,225 @@ export default function KreuzwortraetselGame() {
   }, [puzzle])
 
   const check = useCallback(() => {
-    const w = new Set<string>()
-    for (const row of puzzle.cells)
-      for (const cell of row)
-        if (cell?.kind === 'answer') {
-          const c = cell as AnswerGridCell
-          const id = cellKey(c.row, c.col)
-          if (letters[id] && letters[id] !== c.solution) w.add(id)
-        }
-    setWrong(w)
-  }, [puzzle, letters])
+    const bad = new Set<string>()
+    let blank = 0
+    for (const cell of answerCells) {
+      const id = cellKey(cell.row, cell.col)
+      const value = letters[id]
+      if (!value) blank++
+      else if (value !== cell.solution) bad.add(id)
+    }
+    setWrong(bad)
+    setChecked({ wrong: bad.size, blank })
+  }, [answerCells, letters])
 
   const revealAll = useCallback(() => {
-    const u: Record<string, string> = {}
+    const all: Record<string, string> = {}
     const ids: string[] = []
-    for (const row of puzzle.cells)
-      for (const cell of row)
-        if (cell?.kind === 'answer') {
-          const c = cell as AnswerGridCell
-          const id = cellKey(c.row, c.col)
-          u[id] = c.solution
-          ids.push(id)
-        }
-    setLetters(u)
+    for (const cell of answerCells) {
+      const id = cellKey(cell.row, cell.col)
+      all[id] = cell.solution
+      ids.push(id)
+    }
+    setLetters(all)
     setRevealed(new Set(ids))
     setWrong(new Set())
-  }, [puzzle])
+    setChecked(null)
+  }, [answerCells])
 
-  const CS = 'min(7.5vw, 58px)'
-  const btn = (label: string, onClick: () => void, variant: 'normal' | 'danger' = 'normal') => (
-    <button type="button" onClick={onClick} style={{
-      background: variant === 'danger' ? '#fee2e2' : '#fff',
-      border: `1px solid ${variant === 'danger' ? '#fca5a5' : '#ccc'}`,
-      color: variant === 'danger' ? '#b91c1c' : '#333',
-      borderRadius: 4, padding: '6px 14px', fontSize: 13, cursor: 'pointer', fontFamily: 'sans-serif',
-    }}>{label}</button>
-  )
+  const CS = 'clamp(22px, 6.6vw, 50px)'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f4f0', fontFamily: 'Georgia, serif' }}>
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '20px 12px' }}>
+    <div className="min-h-screen overflow-x-hidden text-white">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.05),transparent_28%)]" />
+        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/5 to-transparent" />
+      </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Link to="/" style={{ color: '#777', textDecoration: 'none', fontSize: 13, fontFamily: 'sans-serif' }}>← Zurück</Link>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: '#111' }}>Kreuzworträtsel</h1>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {btn('Prüfen', check)}
-            {btn('Lösung', revealAll, 'danger')}
-            {btn('Neu', generate)}
+      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
+
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <p className="section-kicker mb-2">Rätsel</p>
+            <h1 className="hero-title text-xl sm:text-2xl">Kreuzworträtsel</h1>
           </div>
+          <Link
+            to="/"
+            className="action-ghost shrink-0 px-4 py-2 text-xs"
+          >
+            Zurück
+          </Link>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <div style={{
-            display: 'inline-grid',
-            gridTemplateColumns: `repeat(${puzzle.cols}, ${CS})`,
-            border: '1px solid #666',
-            gap: 0,
-          }}>
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={check} className="action-secondary px-5 py-2.5 text-xs">
+            Prüfen
+          </button>
+          <button type="button" onClick={clearAll} className="action-ghost px-5 py-2.5 text-xs">
+            Leeren
+          </button>
+          <button type="button" onClick={revealAll} className="action-danger px-5 py-2.5 text-xs">
+            Lösung
+          </button>
+          <button type="button" onClick={generate} className="action-primary ml-auto px-5 py-2.5 text-xs">
+            Neues Rätsel
+          </button>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono-ui text-[0.7rem] uppercase tracking-[0.16em] text-zinc-400">
+          <span>
+            <span className="text-zinc-100">{filledCount}</span>
+            <span className="text-zinc-500"> / {answerCells.length}</span> Felder
+          </span>
+          <span>
+            <span className="text-zinc-100">{puzzle.words.length}</span> Wörter
+          </span>
+          {checked && checked.wrong > 0 && (
+            <span className="text-[#ff8f8f]">{checked.wrong} falsch</span>
+          )}
+          {checked && checked.wrong === 0 && checked.blank > 0 && (
+            <span className="text-[#f5d372]">Bisher alles richtig</span>
+          )}
+          {isComplete && <span className="text-[#8fe0a0]">Gelöst</span>}
+        </div>
+
+        {/* The puzzle itself is drawn as a printed sheet resting on the dark page. */}
+        <div
+          className="overflow-x-auto rounded-2xl p-2.5 sm:p-4"
+          style={{
+            background: PAPER.sheet,
+            border: '1px solid rgba(255,255,255,0.16)',
+            boxShadow: '0 26px 70px rgba(0,0,0,0.55)',
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-grid',
+              gridTemplateColumns: `repeat(${puzzle.cols}, ${CS})`,
+              gap: 0,
+              border: `1.5px solid ${PAPER.rule}`,
+              margin: '0 auto',
+            }}
+          >
             {puzzle.cells.map((row, r) =>
               row.map((cell, c) => {
                 const id = cellKey(r, c)
+                const border = `0.5px solid ${PAPER.rule}`
 
+                // Should not occur: every generated cell is a clue or an answer.
                 if (!cell) return (
-                  <div key={id} style={{ width: CS, height: CS, background: '#e8e4d0', border: '1px solid #ccc', boxSizing: 'border-box' }} />
+                  <div key={id} style={{ width: CS, height: CS, background: PAPER.clue, border, boxSizing: 'border-box' }} />
                 )
 
                 if (cell.kind === 'clue') {
-                  const hasBoth = cell.entries.length >= 2
-                  const sorted = [...cell.entries].sort(a => a.direction === 'down' ? -1 : 1)
+                  const split = cell.entries.length > 1
                   return (
-                    <div key={id} style={{
-                      width: CS, height: CS,
-                      background: '#e8e4d0',
-                      border: '1px solid #666',
-                      display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                      userSelect: 'none', boxSizing: 'border-box',
-                    }}>
-                      {sorted.map((entry, i) => (
-                        <div key={i} style={{
-                          flex: 1,
-                          borderBottom: hasBoth && i === 0 ? '1px solid #bbb' : 'none',
-                          padding: '1px 2px',
-                          display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                          position: 'relative',
-                          fontSize: 'clamp(4px, 1.1vw, 6.5px)',
-                          fontWeight: 700, color: '#111', lineHeight: 1.15,
-                          fontFamily: 'Arial, sans-serif',
-                        }}>
-                          <span style={{ paddingRight: '0.7em' }}>{entry.clue}</span>
-                          <span style={{
-                            position: 'absolute', bottom: 1, right: 2,
-                            fontSize: 'clamp(5px, 1.4vw, 9px)', fontWeight: 900,
-                          }}>
-                            {entry.direction === 'across' ? '▶' : '▼'}
-                          </span>
+                    <div
+                      key={id}
+                      style={{
+                        width: CS, height: CS, boxSizing: 'border-box',
+                        background: PAPER.clue,
+                        border,
+                        position: 'relative',
+                        display: 'flex', flexDirection: 'column',
+                        overflow: 'hidden',
+                        userSelect: 'none',
+                      }}
+                    >
+                      {cell.entries.map((entry, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            flex: 1,
+                            minHeight: 0,
+                            display: 'flex', alignItems: 'center',
+                            padding: split ? '0 5px 0 2px' : '1px 6px 2px 2px',
+                            borderBottom: split && i === 0 ? `0.5px solid ${PAPER.clueLine}` : 'none',
+                            fontFamily: "'Space Grotesk', 'Segoe UI', sans-serif",
+                            fontSize: split ? 'clamp(3.4px, 0.95vw, 6px)' : 'clamp(3.8px, 1.05vw, 6.8px)',
+                            fontWeight: 600,
+                            lineHeight: 1.12,
+                            letterSpacing: '-0.01em',
+                            color: PAPER.ink,
+                            hyphens: 'auto',
+                            overflow: 'hidden',
+                          }}
+                          lang="de"
+                        >
+                          {entry.clue}
                         </div>
                       ))}
+
+                      {/* Arrows sit on the cell edge the word runs off, the way
+                          printed Schwedenrätsel mark direction. */}
+                      {cell.entries.some(e => e.direction === 'across') && (
+                        <span style={{
+                          position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                          fontSize: 'clamp(5px, 1.5vw, 10px)', lineHeight: 1, color: PAPER.ink,
+                        }}>▶</span>
+                      )}
+                      {cell.entries.some(e => e.direction === 'down') && (
+                        <span style={{
+                          position: 'absolute', bottom: -1, left: '50%', transform: 'translateX(-50%)',
+                          fontSize: 'clamp(5px, 1.5vw, 10px)', lineHeight: 1, color: PAPER.ink,
+                        }}>▼</span>
+                      )}
                     </div>
                   )
                 }
 
-                // answer cell
-                const ansCell = cell as AnswerGridCell
                 const isCursor = cursor?.row === r && cursor?.col === c
                 const isActive = activeCells.has(id)
                 const isRevealed = revealed.has(id)
                 const isWrong = wrong.has(id)
 
-                let bg = '#fff'
-                let borderColor = '#666'
-                let color = '#111'
-                if (isWrong) { bg = '#fff0f0'; borderColor = '#f87171'; color = '#b91c1c' }
-                else if (isRevealed) { bg = '#f0fdf4'; borderColor = '#4ade80'; color = '#166534' }
-                else if (isCursor) { bg = '#dbeafe'; borderColor = '#2563eb' }
-                else if (isActive) { bg = '#eff6ff'; borderColor = '#93c5fd' }
+                let bg = PAPER.answer
+                let ink = PAPER.ink
+                if (isWrong) { bg = PAPER.wrong; ink = PAPER.wrongInk }
+                else if (isRevealed) { bg = PAPER.solved; ink = PAPER.solvedInk }
+                else if (isCursor) bg = PAPER.cursor
+                else if (isActive) bg = PAPER.active
 
                 return (
                   <div key={id} style={{ width: CS, height: CS, position: 'relative', boxSizing: 'border-box' }}>
-                    {ansCell.number !== null && (
-                      <span style={{
-                        position: 'absolute', top: 1, left: 2, zIndex: 10,
-                        fontSize: 'clamp(4px, 1vw, 6px)', fontWeight: 700, color: '#555',
-                        pointerEvents: 'none', lineHeight: 1, fontFamily: 'monospace',
-                      }}>{ansCell.number}</span>
-                    )}
                     <input
                       ref={el => { if (el) inputs.current.set(id, el); else inputs.current.delete(id) }}
                       type="text" inputMode="text" autoComplete="off" autoCorrect="off"
                       autoCapitalize="characters" spellCheck={false}
+                      aria-label={`Zeile ${r + 1}, Spalte ${c + 1}`}
                       value={letters[id] ?? ''}
                       readOnly={isRevealed}
-                      onMouseDown={() => handleSelectCell(ansCell)}
+                      onMouseDown={() => handleSelectCell(cell)}
                       onChange={e => {
                         const before = letters[id] ?? ''
-                        const added = e.target.value.startsWith(before) ? e.target.value.slice(before.length) : e.target.value
-                        focus(handleLetter(ansCell, added))
+                        const raw = e.target.value
+                        const added = raw.startsWith(before) ? raw.slice(before.length) : raw
+                        focus(handleLetter(cell, added))
                       }}
                       onKeyDown={e => {
-                        if (e.key === 'Backspace') { e.preventDefault(); focus(handleBackspace(ansCell)) }
-                        else if (e.key === 'ArrowRight') { e.preventDefault(); focus(handleArrow(ansCell, 'across', 1)) }
-                        else if (e.key === 'ArrowLeft') { e.preventDefault(); focus(handleArrow(ansCell, 'across', -1)) }
-                        else if (e.key === 'ArrowDown') { e.preventDefault(); focus(handleArrow(ansCell, 'down', 1)) }
-                        else if (e.key === 'ArrowUp') { e.preventDefault(); focus(handleArrow(ansCell, 'down', -1)) }
+                        if (e.key === 'Backspace') { e.preventDefault(); focus(handleBackspace(cell)) }
+                        else if (e.key === 'ArrowRight') { e.preventDefault(); focus(handleArrow(cell, 'across', 1)) }
+                        else if (e.key === 'ArrowLeft') { e.preventDefault(); focus(handleArrow(cell, 'across', -1)) }
+                        else if (e.key === 'ArrowDown') { e.preventDefault(); focus(handleArrow(cell, 'down', 1)) }
+                        else if (e.key === 'ArrowUp') { e.preventDefault(); focus(handleArrow(cell, 'down', -1)) }
                       }}
                       style={{
                         width: '100%', height: '100%', boxSizing: 'border-box',
-                        border: `1px solid ${borderColor}`,
-                        background: bg, color,
-                        textAlign: 'center', fontFamily: 'Arial, sans-serif',
+                        border,
+                        borderRadius: 0,
+                        background: bg,
+                        color: ink,
+                        textAlign: 'center',
+                        fontFamily: "'Space Grotesk', 'Segoe UI', sans-serif",
                         textTransform: 'uppercase',
-                        fontSize: 'clamp(10px, 3vw, 18px)', fontWeight: 700,
-                        caretColor: 'transparent', outline: 'none', cursor: 'pointer',
+                        fontSize: 'clamp(11px, 3.4vw, 21px)',
+                        fontWeight: 700,
+                        caretColor: 'transparent',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        // globals.css fades input backgrounds; the check result
+                        // has to land the instant the button is pressed.
+                        transition: 'none',
                       }}
                     />
                   </div>
@@ -302,17 +410,21 @@ export default function KreuzwortraetselGame() {
           </div>
         </div>
 
-        {activeWord && (
-          <div style={{ marginTop: 12, background: '#fff', border: '1px solid #ccc', borderRadius: 5, padding: '8px 12px' }}>
-            <span style={{ fontSize: 11, color: '#888', fontFamily: 'sans-serif', marginRight: 8 }}>
-              {activeWord.number} {activeWord.direction === 'across' ? 'waagerecht' : 'senkrecht'} · {activeWord.answer.length} Buchst.
-            </span>
-            <span style={{ fontSize: 14, color: '#111' }}>{activeWord.clue}</span>
-          </div>
-        )}
+        <div className="mt-4 min-h-[3.5rem] rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          {activeWord ? (
+            <>
+              <p className="font-mono-ui text-[0.65rem] uppercase tracking-[0.2em] text-zinc-500">
+                {activeWord.direction === 'across' ? 'Waagerecht' : 'Senkrecht'} · {activeWord.answer.length} Buchstaben
+              </p>
+              <p className="mt-1 text-sm text-zinc-100">{activeWord.clue}</p>
+            </>
+          ) : (
+            <p className="text-sm text-zinc-500">Feld antippen, um die Frage zu lesen.</p>
+          )}
+        </div>
 
-        <p style={{ marginTop: 10, color: '#aaa', fontSize: 11, fontFamily: 'sans-serif', textAlign: 'center' }}>
-          Pfeiltasten · Backspace · Buchstaben
+        <p className="mt-4 text-center font-mono-ui text-[0.62rem] uppercase tracking-[0.18em] text-zinc-600">
+          Pfeiltasten wechseln das Feld · Feld erneut antippen dreht die Richtung
         </p>
       </div>
     </div>
