@@ -5,6 +5,7 @@ import { alltag } from './alltag'
 import { kulturSport } from './kulturSport'
 import { wissenGeschichte } from './wissenGeschichte'
 import { menschSprache } from './menschSprache'
+import { kurz } from './kurz'
 
 /** A raw pool entry: [Lösung, Frage]. Umlauts are written normally here. */
 export type RawEntry = [string, string]
@@ -35,7 +36,8 @@ export const CATEGORIES: Category[] = [
   alltag,
   kulturSport,
   wissenGeschichte,
-  menschSprache
+  menschSprache,
+  kurz
 ]
 
 /**
