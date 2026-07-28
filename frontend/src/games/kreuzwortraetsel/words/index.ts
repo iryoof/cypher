@@ -6,6 +6,7 @@ import { kulturSport } from './kulturSport'
 import { wissenGeschichte } from './wissenGeschichte'
 import { menschSprache } from './menschSprache'
 import { kurz } from './kurz'
+import { weitere } from './weitere'
 
 /** A raw pool entry: [Lösung, Frage]. Umlauts are written normally here. */
 export type RawEntry = [string, string]
@@ -37,7 +38,8 @@ export const CATEGORIES: Category[] = [
   kulturSport,
   wissenGeschichte,
   menschSprache,
-  kurz
+  kurz,
+  weitere
 ]
 
 /**
@@ -56,7 +58,7 @@ export const buildPool = (categoryIds?: string[]): WordEntry[] => {
   for (const category of selected) {
     for (const [answer, clue] of category.entries) {
       const normalised = normaliseAnswer(answer)
-      if (normalised.length < 3 || seen.has(normalised)) continue
+      if (normalised.length < 2 || seen.has(normalised)) continue
       seen.add(normalised)
       pool.push({ answer: normalised, clue, category: category.label })
     }

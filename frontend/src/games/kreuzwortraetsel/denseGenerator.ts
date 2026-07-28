@@ -1,152 +1,209 @@
 import type { Cell, Direction, PlacedWord, Puzzle, WordEntry } from './types'
+import { buildStructure, type Slot } from './structure'
 
 const key = (r: number, c: number) => `${r},${c}`
 
-function groupByLength(pool: WordEntry[], rng: () => number): Map<number, WordEntry[]> {
-  const m = new Map<number, WordEntry[]>()
-  for (const w of pool) {
-    if (!m.has(w.answer.length)) m.set(w.answer.length, [])
-    m.get(w.answer.length)!.push(w)
-  }
-  for (const arr of m.values()) arr.sort(() => rng() - 0.5)
-  return m
-}
-
-function findWord(
-  byLen: Map<number, WordEntry[]>,
-  len: number,
-  pattern: (string | null)[],
-  used: Set<string>,
-  allowReuse = false
-): WordEntry | null {
-  const candidates = byLen.get(len)
-  if (!candidates) return null
-  for (const w of candidates) {
-    if (!allowReuse && used.has(w.answer)) continue
-    let ok = true
-    for (let i = 0; i < len; i++) {
-      if (pattern[i] !== null && pattern[i] !== w.answer[i]) { ok = false; break }
-    }
-    if (ok) return w
-  }
-  if (!allowReuse) return findWord(byLen, len, pattern, used, true)
-  return null
+interface WordIndex {
+  /** length → all words of that length, shuffled once per puzzle */
+  byLen: Map<number, WordEntry[]>
+  /** `len:position:letter` → words with that letter at that position */
+  byLetter: Map<string, WordEntry[]>
 }
 
 /**
- * Valid row partitions for N=11 word-grid columns.
- * k words with single-null separators between them.
- * Invariant: sum(lengths) + (k-1) = 11, every length in [3,9].
- *   k=2: sum=10 → (3,7),(4,6),(5,5),(6,4),(7,3)
- *   k=3: sum=9  → (3,3,3)
+ * Indexing by letter position is what makes the fill affordable: matching a
+ * pattern scans the smallest matching bucket instead of every word of that
+ * length, which is the difference between a search that finishes and one that
+ * times out.
  */
-const ROW_PARTITIONS: number[][] = [
-  [4, 6], [5, 5], [6, 4],
-  [3, 7], [7, 3],
-  [3, 3, 3],
-]
+function buildIndex(pool: WordEntry[], rng: () => number): WordIndex {
+  const byLen = new Map<number, WordEntry[]>()
+  for (const w of pool) {
+    if (!byLen.has(w.answer.length)) byLen.set(w.answer.length, [])
+    byLen.get(w.answer.length)!.push(w)
+  }
+  for (const arr of byLen.values()) arr.sort(() => rng() - 0.5)
+
+  const byLetter = new Map<string, WordEntry[]>()
+  for (const arr of byLen.values())
+    for (const w of arr)
+      for (let p = 0; p < w.answer.length; p++) {
+        const k = `${w.answer.length}:${p}:${w.answer[p]}`
+        if (!byLetter.has(k)) byLetter.set(k, [])
+        byLetter.get(k)!.push(w)
+      }
+
+  return { byLen, byLetter }
+}
+
+const cellsOf = (slot: Slot) =>
+  Array.from({ length: slot.len }, (_, i) => ({
+    row: slot.row + (slot.direction === 'down' ? i : 0),
+    col: slot.col + (slot.direction === 'across' ? i : 0),
+  }))
+
+/** Words that fit the letters already fixed in this slot by crossing words. */
+function candidatesFor(
+  grid: (string | null)[][],
+  slot: Slot,
+  index: WordIndex,
+  used: Set<string>
+): WordEntry[] {
+  const pattern = cellsOf(slot).map(({ row, col }) => grid[row][col])
+
+  // Start from the most selective constrained position, then verify the rest.
+  let base: WordEntry[] | null = null
+  for (let p = 0; p < pattern.length; p++) {
+    if (pattern[p] === null) continue
+    const list = index.byLetter.get(`${slot.len}:${p}:${pattern[p]}`) ?? []
+    if (base === null || list.length < base.length) base = list
+  }
+  base = base ?? index.byLen.get(slot.len) ?? []
+
+  const out: WordEntry[] = []
+  for (const w of base) {
+    if (used.has(w.answer)) continue
+    let ok = true
+    for (let i = 0; i < pattern.length; i++)
+      if (pattern[i] !== null && pattern[i] !== w.answer[i]) { ok = false; break }
+    if (ok) out.push(w)
+  }
+  return out
+}
 
 /**
- * Generates a dense German crossword.
+ * Fills every slot by backtracking, always taking the most constrained slot
+ * first (fewest candidates). Returns the chosen word per slot index, or null if
+ * this structure cannot be filled from the pool within the node budget.
+ */
+function fillSlots(
+  slots: Slot[],
+  index: WordIndex,
+  n: number,
+  budget: { steps: number }
+): (WordEntry | null)[] | null {
+  const grid: (string | null)[][] = Array.from({ length: n }, () => Array(n).fill(null))
+  const chosen: (WordEntry | null)[] = slots.map(() => null)
+  const used = new Set<string>()
+
+  const recurse = (): boolean => {
+    if (budget.steps-- <= 0) return false
+
+    // Most constrained unfilled slot first; a slot with no candidates at all
+    // means this branch is already dead.
+    let best = -1
+    let bestCands: WordEntry[] = []
+    for (let i = 0; i < slots.length; i++) {
+      if (chosen[i]) continue
+      const cands = candidatesFor(grid, slots[i], index, used)
+      if (cands.length === 0) return false
+      if (best === -1 || cands.length < bestCands.length) {
+        best = i
+        bestCands = cands
+        if (cands.length === 1) break
+      }
+    }
+    if (best === -1) return true // every slot filled
+
+    const cells = cellsOf(slots[best])
+
+    // Trying every candidate of a wide-open slot explodes; the pool is shuffled,
+    // so a capped sample is still varied.
+    for (const word of bestCands.slice(0, 10)) {
+      const restore = cells.map(({ row, col }) => grid[row][col])
+      cells.forEach(({ row, col }, i) => { grid[row][col] = word.answer[i] })
+      chosen[best] = word
+      used.add(word.answer)
+
+      if (recurse()) return true
+
+      cells.forEach(({ row, col }, i) => { grid[row][col] = restore[i] })
+      chosen[best] = null
+      used.delete(word.answer)
+    }
+    return false
+  }
+
+  return recurse() ? chosen : null
+}
+
+/**
+ * Generates a dense German crossword: a clue-cell layout from buildStructure,
+ * with every answer run filled by a word from the pool.
  *
- * Phase 1: fill each row completely using a pre-validated partition of word lengths.
- *          Every null is a single-cell separator immediately before the next word →
- *          toGermanStyle converts ALL nulls to clue cells → no orphaned black cells.
- *
- * Phase 2: for every contiguous column run of answer cells (length ≥ 3)
- *          place a down word that matches the already-set letters.
+ * Structure and fill are retried together — a layout the pool cannot satisfy is
+ * discarded rather than partially filled, so every grid that comes back has a
+ * word in every slot and a clue for every word.
  */
 export function generateDensePuzzle(pool: WordEntry[], rng?: () => number): Puzzle {
   const random = rng ?? Math.random
-  const N = 11 // word-grid size; toGermanStyle adds 1 row+col → 12×12
+  const N = 11 // word-grid size; toGermanStyle adds 1 row + 1 col → 12×12
 
-  const byLen = groupByLength(pool, random)
+  const index = buildIndex(pool, random)
 
-  const grid: (string | null)[][] = Array.from({ length: N }, () => Array(N).fill(null))
-  const placements: { word: WordEntry; row: number; col: number; direction: Direction }[] = []
-  const used = new Set<string>()
+  let slots: Slot[] = []
+  let filled: (WordEntry | null)[] | null = null
 
-  // ── Phase 1: across words ──────────────────────────────────────────────────
-  for (let r = 0; r < N; r++) {
-    const shuffled = [...ROW_PARTITIONS].sort(() => random() - 0.5)
-
-    for (const partition of shuffled) {
-      // Dry-run: check if we can find words for each slot
-      const tempUsed = new Set(used)
-      const found: WordEntry[] = []
-      let ok = true
-
-      for (const len of partition) {
-        const w = findWord(byLen, len, Array(len).fill(null), tempUsed)
-        if (!w) { ok = false; break }
-        found.push(w)
-        tempUsed.add(w.answer)
-      }
-
-      if (!ok) continue
-
-      // Commit: write words into the grid
-      let col = 0
-      for (let i = 0; i < partition.length; i++) {
-        const w = found[i]
-        for (let j = 0; j < w.answer.length; j++) grid[r][col + j] = w.answer[j]
-        placements.push({ word: w, row: r, col, direction: 'across' })
-        used.add(w.answer)
-        col += w.answer.length
-        if (i < partition.length - 1) col++ // single null separator
-      }
-      break
-    }
-    // Extremely unlikely: all partitions failed → row stays null
+  // About four in five structures are fillable, so a handful of attempts is
+  // enough; the budget caps the rare structure that would search forever.
+  for (let attempt = 0; attempt < 25 && !filled; attempt++) {
+    const structure = buildStructure(N, random)
+    slots = structure.slots
+    filled = fillSlots(slots, index, N, { steps: 20000 })
   }
 
-  // ── Phase 2: down words ────────────────────────────────────────────────────
-  for (let c = 0; c < N; c++) {
-    let row = 0
-    while (row < N) {
-      while (row < N && grid[row][c] === null) row++
-      if (row >= N) break
-      const start = row
-      while (row < N && grid[row][c] !== null) row++
-      const len = row - start
-      if (len < 3) continue
-
-      const pattern = Array.from({ length: len }, (_, i) => grid[start + i][c])
-      const w = findWord(byLen, len, pattern, used)
-      if (!w) continue
-      placements.push({ word: w, row: start, col: c, direction: 'down' })
-      used.add(w.answer)
-    }
+  // Last resort: keep whatever the final attempt managed, dropping empty slots.
+  if (!filled) {
+    const structure = buildStructure(N, random)
+    slots = structure.slots
+    filled = slots.map(() => null)
   }
 
-  // ── Build Puzzle ───────────────────────────────────────────────────────────
+  const placements = slots
+    .map((slot, i) => ({ slot, word: filled![i] }))
+    .filter((p): p is { slot: Slot; word: WordEntry } => p.word !== null)
+
+  // Paint the letters into a grid so unfilled cells stay null.
+  const letters: (string | null)[][] = Array.from({ length: N }, () => Array(N).fill(null))
+  for (const { slot, word } of placements)
+    cellsOf(slot).forEach(({ row, col }, i) => { letters[row][col] = word.answer[i] })
+
   const numMap = new Map<string, number>()
   let counter = 0
   for (let r = 0; r < N; r++)
     for (let c = 0; c < N; c++)
-      if (placements.some(p => p.row === r && p.col === c))
+      if (placements.some((p) => p.slot.row === r && p.slot.col === c))
         numMap.set(key(r, c), ++counter)
 
   const words: PlacedWord[] = placements
-    .map((p, id) => ({ ...p.word, id, number: numMap.get(key(p.row, p.col)) ?? 0, row: p.row, col: p.col, direction: p.direction }))
+    .map(({ slot, word }, id) => ({
+      ...word,
+      id,
+      number: numMap.get(key(slot.row, slot.col)) ?? 0,
+      row: slot.row,
+      col: slot.col,
+      direction: slot.direction as Direction,
+    }))
     .sort((a, b) => a.number - b.number || (a.direction === 'across' ? -1 : 1))
-
-  const step = (d: Direction): [number, number] => d === 'across' ? [0, 1] : [1, 0]
 
   const cells: (Cell | null)[][] = Array.from({ length: N }, (_, r) =>
     Array.from({ length: N }, (_, c): Cell | null => {
-      if (grid[r][c] === null) return null
-      const wordIds = words.filter(w => {
-        const [dr, dc] = step(w.direction)
-        for (let i = 0; i < w.answer.length; i++)
-          if (w.row + dr * i === r && w.col + dc * i === c) return true
-        return false
-      }).map(w => w.id)
+      if (letters[r][c] === null) return null
+      const wordIds = words
+        .filter((w) =>
+          w.direction === 'across'
+            ? w.row === r && c >= w.col && c < w.col + w.answer.length
+            : w.col === c && r >= w.row && r < w.row + w.answer.length
+        )
+        .map((w) => w.id)
       if (!wordIds.length) return null
-      const owner = words.find(w => w.id === wordIds[0])!
-      const [dr] = step(owner.direction)
-      const offset = dr === 0 ? c - owner.col : r - owner.row
-      return { row: r, col: c, solution: owner.answer[offset], number: numMap.get(key(r, c)) ?? null, wordIds }
+      return {
+        row: r,
+        col: c,
+        solution: letters[r][c]!,
+        number: numMap.get(key(r, c)) ?? null,
+        wordIds,
+      }
     })
   )
 
