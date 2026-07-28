@@ -1,0 +1,115 @@
+import type { Category } from './index'
+
+/**
+ * Two-letter answers.
+ *
+ * A grid with no empty cells needs a word in every gap, including the one- and
+ * two-cell stubs left between clue cells. German has few genuine two-letter
+ * words, so this leans on the categories real Kreuzworträtsel use for exactly
+ * this purpose: chemical symbols, note names, river names and abbreviations.
+ */
+export const zwei: Category = {
+  id: 'zwei',
+  label: 'Zwei Buchstaben',
+  entries: [
+    // Words and particles
+    ['Ab', 'Vorsilbe für weg'],
+    ['Ah', 'Ausruf der Erkenntnis'],
+    ['Am', 'An dem'],
+    ['An', 'Gegenteil von aus'],
+    ['Au', 'Ruf bei Schmerz'],
+    ['Da', 'An diesem Ort'],
+    ['Du', 'Vertrauliche Anrede'],
+    ['Ei', 'Legt das Huhn'],
+    ['Er', 'Dritte Person männlich'],
+    ['Es', 'Sächliches Fürwort'],
+    ['He', 'Ruf zum Anhalten'],
+    ['Im', 'In dem'],
+    ['In', 'Innerhalb'],
+    ['Ja', 'Zustimmende Antwort'],
+    ['Je', 'Für jeweils'],
+    ['Nu', 'Im Nu, im Augenblick'],
+    ['Ob', 'Leitet den Nebensatz ein'],
+    ['Oh', 'Ausruf des Staunens'],
+    ['So', 'Auf diese Weise'],
+    ['Tu', 'Aufforderung zu handeln'],
+    ['Um', 'Rundherum'],
+    ['Wo', 'Frage nach dem Ort'],
+    ['Zu', 'Geschlossen'],
+
+    // Note names
+    ['Do', 'Erster Ton der Tonleiter'],
+    ['Re', 'Zweiter Ton der Tonleiter'],
+    ['Mi', 'Dritter Ton der Tonleiter'],
+    ['Fa', 'Vierter Ton der Tonleiter'],
+    ['La', 'Sechster Ton der Tonleiter'],
+    ['Si', 'Siebter Ton der Tonleiter'],
+
+    // Rivers and places
+    ['Po', 'Längster Fluss Italiens'],
+    ['Ob', 'Grosser Strom in Sibirien'],
+    ['Ur', 'Alte Stadt in Mesopotamien'],
+
+    // Chemical symbols
+    ['Ag', 'Chemisches Zeichen für Silber'],
+    ['Al', 'Chemisches Zeichen für Aluminium'],
+    ['Ar', 'Chemisches Zeichen für Argon'],
+    ['Ba', 'Chemisches Zeichen für Barium'],
+    ['Be', 'Chemisches Zeichen für Beryllium'],
+    ['Br', 'Chemisches Zeichen für Brom'],
+    ['Ca', 'Chemisches Zeichen für Calcium'],
+    ['Cl', 'Chemisches Zeichen für Chlor'],
+    ['Co', 'Chemisches Zeichen für Cobalt'],
+    ['Cr', 'Chemisches Zeichen für Chrom'],
+    ['Cu', 'Chemisches Zeichen für Kupfer'],
+    ['Fe', 'Chemisches Zeichen für Eisen'],
+    ['Hg', 'Chemisches Zeichen für Quecksilber'],
+    ['Ir', 'Chemisches Zeichen für Iridium'],
+    ['Kr', 'Chemisches Zeichen für Krypton'],
+    ['Li', 'Chemisches Zeichen für Lithium'],
+    ['Mg', 'Chemisches Zeichen für Magnesium'],
+    ['Mn', 'Chemisches Zeichen für Mangan'],
+    ['Mo', 'Chemisches Zeichen für Molybdän'],
+    ['Na', 'Chemisches Zeichen für Natrium'],
+    ['Nb', 'Chemisches Zeichen für Niob'],
+    ['Ne', 'Chemisches Zeichen für Neon'],
+    ['Ni', 'Chemisches Zeichen für Nickel'],
+    ['Os', 'Chemisches Zeichen für Osmium'],
+    ['Pb', 'Chemisches Zeichen für Blei'],
+    ['Pd', 'Chemisches Zeichen für Palladium'],
+    ['Pt', 'Chemisches Zeichen für Platin'],
+    ['Rh', 'Chemisches Zeichen für Rhodium'],
+    ['Ru', 'Chemisches Zeichen für Ruthenium'],
+    ['Sn', 'Chemisches Zeichen für Zinn'],
+    ['Sr', 'Chemisches Zeichen für Strontium'],
+    ['Ta', 'Chemisches Zeichen für Tantal'],
+    ['Ti', 'Chemisches Zeichen für Titan'],
+    ['Xe', 'Chemisches Zeichen für Xenon'],
+    ['Zn', 'Chemisches Zeichen für Zink'],
+    ['Zr', 'Chemisches Zeichen für Zirconium'],
+
+    // Abbreviations and units
+    ['Bh', 'Wäschestück der Frau (Abkürzung)'],
+    ['Cd', 'Silberne Datenscheibe'],
+    ['Cl', 'Kurzzeichen für Zentiliter'],
+    ['Cm', 'Kurzzeichen für Zentimeter'],
+    ['Dm', 'Kurzzeichen für Dezimeter'],
+    ['Dr', 'Akademischer Titel (Abkürzung)'],
+    ['Eg', 'Kurzzeichen für Erdgeschoss'],
+    ['Eu', 'Staatenbund in Brüssel (Abkürzung)'],
+    ['Kg', 'Kurzzeichen für Kilogramm'],
+    ['Km', 'Kurzzeichen für Kilometer'],
+    ['Kw', 'Kurzzeichen für Kilowatt'],
+    ['Lp', 'Grosse Schallplatte (Abkürzung)'],
+    ['Ml', 'Kurzzeichen für Milliliter'],
+    ['Mm', 'Kurzzeichen für Millimeter'],
+    ['Nr', 'Kurzzeichen für Nummer'],
+    ['Pc', 'Kurzzeichen für den Rechner'],
+    ['Ps', 'Nachtrag im Brief'],
+    ['St', 'Kurzzeichen für Stück'],
+    ['Tv', 'Kurzzeichen für das Fernsehen'],
+    ['Un', 'Weltstaatenbund in New York (Abkürzung)'],
+    ['Us', 'Kürzel der Vereinigten Staaten'],
+    ['Wc', 'Kurzzeichen für die Toilette'],
+  ],
+}

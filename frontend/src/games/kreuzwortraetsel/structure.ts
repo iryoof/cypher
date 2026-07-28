@@ -6,141 +6,188 @@ export interface Slot {
 }
 
 export interface Structure {
-  /** true = clue cell (holds the question text), false = answer cell */
+  /** true = clue cell (carries the question text), false = answer cell */
   isClue: boolean[][]
   slots: Slot[]
 }
 
-const MIN = 3
-const MAX = 5
+const MIN = 2
+const MAX = 8
+
+export const cellsOfSlot = (slot: Slot): [number, number][] =>
+  Array.from({ length: slot.len }, (_, i) => [
+    slot.row + (slot.direction === 'down' ? i : 0),
+    slot.col + (slot.direction === 'across' ? i : 0),
+  ])
 
 /**
- * Extra clue cells sprinkled in after the split pass. Splitting alone leaves a
- * grid where ~85% of cells carry both an across and a down word, which no pool
- * this size can fill. These thin the crossing to ~69% and take the fill rate
- * from roughly 1-in-10 structures to 4-in-5.
+ * Answer runs long enough to hold a word. A run only counts if a clue cell sits
+ * immediately before it — that cell is where its arrow goes — so runs hard
+ * against the top or left edge are not slots.
  */
-const EXTRA_CLUES = 24
+export function slotsOf(isClue: boolean[][], n: number): Slot[] {
+  const slots: Slot[] = []
 
-/** Contiguous answer-cell runs along one row (down=false) or column (down=true). */
-function runs(isClue: boolean[][], n: number, index: number, down: boolean) {
-  const out: { start: number; len: number }[] = []
-  let i = 0
-  while (i < n) {
-    while (i < n && (down ? isClue[i][index] : isClue[index][i])) i++
-    if (i >= n) break
-    const start = i
-    while (i < n && !(down ? isClue[i][index] : isClue[index][i])) i++
-    out.push({ start, len: i - start })
-  }
-  return out
-}
-
-/** Length of the answer-cell run through (r,c) in the given orientation. */
-function runLenAt(isClue: boolean[][], n: number, r: number, c: number, down: boolean) {
-  if (isClue[r][c]) return 0
-  let len = 1
-  for (const sign of [1, -1]) {
-    let rr = r + (down ? sign : 0)
-    let cc = c + (down ? 0 : sign)
-    while (rr >= 0 && rr < n && cc >= 0 && cc < n && !isClue[rr][cc]) {
-      len++
-      rr += down ? sign : 0
-      cc += down ? 0 : sign
+  for (let r = 0; r < n; r++) {
+    let c = 0
+    while (c < n) {
+      while (c < n && isClue[r][c]) c++
+      if (c >= n) break
+      const start = c
+      while (c < n && !isClue[r][c]) c++
+      if (start >= 1 && c - start >= MIN)
+        slots.push({ row: r, col: start, len: c - start, direction: 'across' })
     }
   }
-  return len
+
+  for (let c = 0; c < n; c++) {
+    let r = 0
+    while (r < n) {
+      while (r < n && isClue[r][c]) r++
+      if (r >= n) break
+      const start = r
+      while (r < n && !isClue[r][c]) r++
+      if (start >= 1 && r - start >= MIN)
+        slots.push({ row: start, col: c, len: r - start, direction: 'down' })
+    }
+  }
+
+  return slots
 }
 
+/** Answer runs that exceed MAX, in both orientations. */
 function oversizedRuns(isClue: boolean[][], n: number) {
-  const out: { index: number; down: boolean; start: number; len: number }[] = []
-  for (let i = 0; i < n; i++)
-    for (const down of [false, true])
-      for (const run of runs(isClue, n, i, down))
-        if (run.len > MAX) out.push({ index: i, down, ...run })
+  const out: { down: boolean; index: number; start: number; len: number }[] = []
+
+  for (let r = 0; r < n; r++) {
+    let c = 0
+    while (c < n) {
+      while (c < n && isClue[r][c]) c++
+      if (c >= n) break
+      const s = c
+      while (c < n && !isClue[r][c]) c++
+      if (c - s > MAX) out.push({ down: false, index: r, start: s, len: c - s })
+    }
+  }
+
+  for (let c = 0; c < n; c++) {
+    let r = 0
+    while (r < n) {
+      while (r < n && isClue[r][c]) r++
+      if (r >= n) break
+      const s = r
+      while (r < n && !isClue[r][c]) r++
+      if (r - s > MAX) out.push({ down: true, index: c, start: s, len: r - s })
+    }
+  }
+
   return out
 }
 
+interface Faults {
+  slots: Slot[]
+  /** answer cells that belong to no slot — they would render blank */
+  orphans: [number, number][]
+  /** clue cells with no word starting right of or below them — they would render empty */
+  deadClues: [number, number][]
+  oversized: ReturnType<typeof oversizedRuns>
+}
+
+function analyse(isClue: boolean[][], n: number): Faults {
+  const slots = slotsOf(isClue, n)
+  const covered = new Set<string>()
+  const startsAcross = new Set<string>()
+  const startsDown = new Set<string>()
+
+  for (const slot of slots) {
+    for (const [r, c] of cellsOfSlot(slot)) covered.add(`${r},${c}`)
+    ;(slot.direction === 'across' ? startsAcross : startsDown).add(`${slot.row},${slot.col}`)
+  }
+
+  const orphans: [number, number][] = []
+  const deadClues: [number, number][] = []
+
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++) {
+      if (isClue[r][c]) {
+        if (!startsAcross.has(`${r},${c + 1}`) && !startsDown.has(`${r + 1},${c}`))
+          deadClues.push([r, c])
+      } else if (!covered.has(`${r},${c}`)) {
+        orphans.push([r, c])
+      }
+    }
+
+  return { slots, orphans, deadClues, oversized: oversizedRuns(isClue, n) }
+}
+
 /**
- * Builds the clue-cell layout for a German crossword.
+ * Builds a clue-cell layout in which every cell earns its place: no answer cell
+ * without a word through it, and no clue cell without a word to point at. Those
+ * two faults are what used to leave blank cells in the rendered grid.
  *
- * Starts from an empty grid (one huge run per line) and repeatedly splits a
- * randomly chosen oversized run. Randomising which run gets split — rather than
- * walking a fixed lattice — is what makes each puzzle's shape different.
- *
- * Splitting is deliberately unconstrained perpendicular to the run: refusing
- * splits that leave a stub beside them deadlocks rows 1 and n-2 (any clue there
- * strands a single cell against the edge), which leaves whole lines unsplit.
- * The stubs are cleaned up afterwards instead.
+ * Starts from a jittered diagonal lattice, then repairs one randomly chosen
+ * fault per round. Fixing faults one at a time rather than sweeping them keeps
+ * the repairs from locking into a cycle, where closing a gap reopens the one
+ * that caused it.
  */
-export function buildStructure(n: number, rng: () => number): Structure {
+export function buildStructure(n: number, rng: () => number): Structure & { ok: boolean } {
   const isClue: boolean[][] = Array.from({ length: n }, () => Array(n).fill(false))
 
-  for (let guard = 0; guard < n * n * 4; guard++) {
-    const over = oversizedRuns(isClue, n)
-    if (over.length === 0) break
+  const period = 5 + Math.floor(rng() * 3) // 5..7
+  const shift = 1 + Math.floor(rng() * 3)
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if ((((c - shift * r) % period) + period) % period === 0) isClue[r][c] = true
 
-    // Try the oversized runs in random order; only give up once none of them
-    // can be split at all.
-    const order = [...over].sort(() => rng() - 0.5)
-    let placed = false
-
-    for (const run of order) {
-      const candidates: [number, number][] = []
-      // A clue at p leaves sub-runs [start, p) and (p, start+len); both must
-      // reach MIN, so p ranges over start+MIN .. start+len-MIN-1.
-      for (let p = run.start + MIN; p <= run.start + run.len - MIN - 1; p++)
-        candidates.push(run.down ? [p, run.index] : [run.index, p])
-      if (candidates.length === 0) continue
-
-      const [r, c] = candidates[Math.floor(rng() * candidates.length)]
-      isClue[r][c] = true
-      placed = true
-      break
-    }
-
-    if (!placed) break
-  }
-
-  // Thin out the crossing density. A clue is only kept if it leaves every
-  // across run in its row still long enough to hold a word, so the extra cells
-  // break up down runs without stranding across ones.
-  for (let tries = 0; tries < EXTRA_CLUES * 4; tries++) {
+  // The bare lattice reads as diagonal stripes and only has a handful of shapes.
+  // Flipping a few cells breaks the pattern up; the repair loop below restores
+  // validity, so the jitter costs variety nothing in correctness.
+  const jitter = 6 + Math.floor(rng() * 7)
+  for (let i = 0; i < jitter; i++) {
     const r = Math.floor(rng() * n)
     const c = Math.floor(rng() * n)
-    if (isClue[r][c]) continue
-    isClue[r][c] = true
-    if (!runs(isClue, n, r, false).every((run) => run.len >= MIN)) isClue[r][c] = false
+    isClue[r][c] = !isClue[r][c]
   }
 
-  // A cell is orphaned when neither its across nor its down run can hold a
-  // word. Turn those into clue cells — that can orphan a neighbour, so repeat
-  // until the layout settles.
-  for (let pass = 0; pass < n * n; pass++) {
-    let changed = false
-    for (let r = 0; r < n; r++)
-      for (let c = 0; c < n; c++) {
-        if (isClue[r][c]) continue
-        if (runLenAt(isClue, n, r, c, false) < MIN && runLenAt(isClue, n, r, c, true) < MIN) {
-          isClue[r][c] = true
-          changed = true
-        }
+  for (let round = 0; round < 500; round++) {
+    const { orphans, deadClues, oversized } = analyse(isClue, n)
+    if (!orphans.length && !deadClues.length && !oversized.length)
+      return { isClue, slots: slotsOf(isClue, n), ok: true }
+
+    const jobs: [string, unknown][] = [
+      ...orphans.map((o) => ['orphan', o] as [string, unknown]),
+      ...deadClues.map((d) => ['dead', d] as [string, unknown]),
+      ...oversized.map((s) => ['big', s] as [string, unknown]),
+    ]
+    const [kind, payload] = jobs[Math.floor(rng() * jobs.length)]
+
+    if (kind === 'orphan') {
+      const [r, c] = payload as [number, number]
+      isClue[r][c] = true
+    } else if (kind === 'dead') {
+      const [r, c] = payload as [number, number]
+      // Prefer opening the cell right of or below it, so the clue gains a word
+      // to point at; failing that, give up the clue cell itself.
+      const opts: [number, number][] = []
+      if (c + 1 < n && isClue[r][c + 1]) opts.push([r, c + 1])
+      if (r + 1 < n && isClue[r + 1][c]) opts.push([r + 1, c])
+      if (opts.length && rng() < 0.7) {
+        const [rr, cc] = opts[Math.floor(rng() * opts.length)]
+        isClue[rr][cc] = false
+      } else {
+        isClue[r][c] = false
       }
-    if (!changed) break
+    } else {
+      const run = payload as { down: boolean; index: number; start: number; len: number }
+      const cand: [number, number][] = []
+      for (let p = run.start + MIN; p <= run.start + run.len - MIN - 1; p++)
+        cand.push(run.down ? [p, run.index] : [run.index, p])
+      if (cand.length) {
+        const [r, c] = cand[Math.floor(rng() * cand.length)]
+        isClue[r][c] = true
+      }
+    }
   }
 
-  // Runs starting at index 0 are fine: toGermanStyle adds a border row and
-  // column that holds their clue cell.
-  const slots: Slot[] = []
-  for (let r = 0; r < n; r++)
-    for (const run of runs(isClue, n, r, false))
-      if (run.len >= MIN)
-        slots.push({ row: r, col: run.start, len: run.len, direction: 'across' })
-
-  for (let c = 0; c < n; c++)
-    for (const run of runs(isClue, n, c, true))
-      if (run.len >= MIN)
-        slots.push({ row: run.start, col: c, len: run.len, direction: 'down' })
-
-  return { isClue, slots }
+  return { isClue, slots: slotsOf(isClue, n), ok: false }
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { generateDensePuzzle } from '../games/kreuzwortraetsel/denseGenerator'
-import { toGermanStyle } from '../games/kreuzwortraetsel/german'
+import { loadPuzzle } from '../games/kreuzwortraetsel/loadPuzzle'
+import { PUZZLES } from '../games/kreuzwortraetsel/puzzles'
 import type { GermanPuzzle, AnswerGridCell, Direction, Position } from '../games/kreuzwortraetsel/types'
 import { buildPool } from '../games/kreuzwortraetsel/words'
 
@@ -9,8 +9,17 @@ const pool = buildPool()
 
 const cellKey = (r: number, c: number) => `${r},${c}`
 
+/**
+ * Picks a puzzle from the shipped set, avoiding an immediate repeat. The layouts
+ * are pre-generated: filling a grid with no empty cells takes seconds of search,
+ * which would stall the page if done here.
+ */
+let lastIndex = -1
 function newPuzzle(): GermanPuzzle {
-  return toGermanStyle(generateDensePuzzle(pool))
+  let i = Math.floor(Math.random() * PUZZLES.length)
+  if (PUZZLES.length > 1 && i === lastIndex) i = (i + 1) % PUZZLES.length
+  lastIndex = i
+  return loadPuzzle(PUZZLES[i], pool)
 }
 
 export default function KreuzwortraetselGame() {

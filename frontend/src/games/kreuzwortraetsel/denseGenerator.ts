@@ -1,7 +1,18 @@
-import type { Cell, Direction, PlacedWord, Puzzle, WordEntry } from './types'
-import { buildStructure, type Slot } from './structure'
+import type {
+  AnswerGridCell,
+  ClueCellEntry,
+  ClueGridCell,
+  GermanCell,
+  GermanPuzzle,
+  PlacedWord,
+  WordEntry,
+} from './types'
+import { buildStructure, cellsOfSlot, slotsOf, type Slot } from './structure'
 
-const key = (r: number, c: number) => `${r},${c}`
+const buildSlotsFrom = (isClue: boolean[][]) => slotsOf(isClue, N)
+
+/** Final grid size. The structure is built at this size directly. */
+const N = 12
 
 interface WordIndex {
   /** length → all words of that length, shuffled once per puzzle */
@@ -36,12 +47,6 @@ function buildIndex(pool: WordEntry[], rng: () => number): WordIndex {
   return { byLen, byLetter }
 }
 
-const cellsOf = (slot: Slot) =>
-  Array.from({ length: slot.len }, (_, i) => ({
-    row: slot.row + (slot.direction === 'down' ? i : 0),
-    col: slot.col + (slot.direction === 'across' ? i : 0),
-  }))
-
 /** Words that fit the letters already fixed in this slot by crossing words. */
 function candidatesFor(
   grid: (string | null)[][],
@@ -49,7 +54,7 @@ function candidatesFor(
   index: WordIndex,
   used: Set<string>
 ): WordEntry[] {
-  const pattern = cellsOf(slot).map(({ row, col }) => grid[row][col])
+  const pattern = cellsOfSlot(slot).map(([r, c]) => grid[r][c])
 
   // Start from the most selective constrained position, then verify the rest.
   let base: WordEntry[] | null = null
@@ -73,24 +78,22 @@ function candidatesFor(
 
 /**
  * Fills every slot by backtracking, always taking the most constrained slot
- * first (fewest candidates). Returns the chosen word per slot index, or null if
- * this structure cannot be filled from the pool within the node budget.
+ * first. Returns a word per slot, or null if this layout cannot be filled from
+ * the pool within the node budget — a partly filled grid would leave blanks, so
+ * it is discarded rather than used.
  */
 function fillSlots(
   slots: Slot[],
   index: WordIndex,
-  n: number,
   budget: { steps: number }
-): (WordEntry | null)[] | null {
-  const grid: (string | null)[][] = Array.from({ length: n }, () => Array(n).fill(null))
+): WordEntry[] | null {
+  const grid: (string | null)[][] = Array.from({ length: N }, () => Array(N).fill(null))
   const chosen: (WordEntry | null)[] = slots.map(() => null)
   const used = new Set<string>()
 
   const recurse = (): boolean => {
     if (budget.steps-- <= 0) return false
 
-    // Most constrained unfilled slot first; a slot with no candidates at all
-    // means this branch is already dead.
     let best = -1
     let bestCands: WordEntry[] = []
     for (let i = 0; i < slots.length; i++) {
@@ -103,109 +106,142 @@ function fillSlots(
         if (cands.length === 1) break
       }
     }
-    if (best === -1) return true // every slot filled
+    if (best === -1) return true
 
-    const cells = cellsOf(slots[best])
-
-    // Trying every candidate of a wide-open slot explodes; the pool is shuffled,
-    // so a capped sample is still varied.
+    const cells = cellsOfSlot(slots[best])
     for (const word of bestCands.slice(0, 10)) {
-      const restore = cells.map(({ row, col }) => grid[row][col])
-      cells.forEach(({ row, col }, i) => { grid[row][col] = word.answer[i] })
+      const restore = cells.map(([r, c]) => grid[r][c])
+      cells.forEach(([r, c], i) => { grid[r][c] = word.answer[i] })
       chosen[best] = word
       used.add(word.answer)
 
       if (recurse()) return true
 
-      cells.forEach(({ row, col }, i) => { grid[row][col] = restore[i] })
+      cells.forEach(([r, c], i) => { grid[r][c] = restore[i] })
       chosen[best] = null
       used.delete(word.answer)
     }
     return false
   }
 
-  return recurse() ? chosen : null
+  return recurse() ? (chosen as WordEntry[]) : null
 }
 
 /**
- * Generates a dense German crossword: a clue-cell layout from buildStructure,
- * with every answer run filled by a word from the pool.
+ * Searches for one fully filled 12×12 layout. Returns the clue-cell grid and one
+ * answer per slot, or null if no layout worked within `attempts`.
  *
- * Structure and fill are retried together — a layout the pool cannot satisfy is
- * discarded rather than partially filled, so every grid that comes back has a
- * word in every slot and a clue for every word.
+ * This is the expensive half — a grid with no empty cells has an across and a
+ * down word through nearly every cell, and finding a fill takes seconds. It runs
+ * offline (see scripts/generatePuzzles.ts), never in the browser.
  */
-export function generateDensePuzzle(pool: WordEntry[], rng?: () => number): Puzzle {
-  const random = rng ?? Math.random
-  const N = 11 // word-grid size; toGermanStyle adds 1 row + 1 col → 12×12
+export function searchFilledLayout(
+  pool: WordEntry[],
+  rng: () => number,
+  attempts = 250,
+  steps = 4000
+): { isClue: boolean[][]; answers: string[] } | null {
+  const index = buildIndex(pool, rng)
 
-  const index = buildIndex(pool, random)
+  // Most layouts cannot be filled from a pool this size, and the ones that can
+  // usually fall out quickly. A small step budget over many layouts finds a fill
+  // far sooner than a large budget over few.
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const structure = buildStructure(N, rng)
+    if (!structure.ok) continue
+    const filled = fillSlots(structure.slots, index, { steps })
+    if (filled) return { isClue: structure.isClue, answers: filled.map((w) => w.answer) }
+  }
+  return null
+}
+
+/**
+ * Generates a complete 12×12 German crossword: clue cells carrying the
+ * questions, answer cells carrying the letters, and nothing else. Every cell is
+ * one or the other, so the rendered grid has no blanks.
+ */
+export function generateGermanPuzzle(pool: WordEntry[], rng?: () => number): GermanPuzzle {
+  const random = rng ?? Math.random
 
   let slots: Slot[] = []
-  let filled: (WordEntry | null)[] | null = null
+  let filled: WordEntry[] | null = null
 
-  // About four in five structures are fillable, so a handful of attempts is
-  // enough; the budget caps the rare structure that would search forever.
-  for (let attempt = 0; attempt < 25 && !filled; attempt++) {
-    const structure = buildStructure(N, random)
-    slots = structure.slots
-    filled = fillSlots(slots, index, N, { steps: 20000 })
+  const found = searchFilledLayout(pool, random)
+  if (found) {
+    const byAnswer = new Map(pool.map((w) => [w.answer, w]))
+    slots = buildSlotsFrom(found.isClue)
+    filled = found.answers.map((a) => byAnswer.get(a)!)
   }
 
-  // Last resort: keep whatever the final attempt managed, dropping empty slots.
   if (!filled) {
-    const structure = buildStructure(N, random)
-    slots = structure.slots
-    filled = slots.map(() => null)
+    // No layout the pool could satisfy; fall back to an empty grid rather than a
+    // half-filled one so the failure is obvious instead of subtle.
+    return { rows: N, cols: N, cells: Array.from({ length: N }, () => Array(N).fill(null)), words: [] }
   }
 
-  const placements = slots
-    .map((slot, i) => ({ slot, word: filled![i] }))
-    .filter((p): p is { slot: Slot; word: WordEntry } => p.word !== null)
-
-  // Paint the letters into a grid so unfilled cells stay null.
-  const letters: (string | null)[][] = Array.from({ length: N }, () => Array(N).fill(null))
-  for (const { slot, word } of placements)
-    cellsOf(slot).forEach(({ row, col }, i) => { letters[row][col] = word.answer[i] })
-
+  // Number the cells that start a word, in reading order.
   const numMap = new Map<string, number>()
   let counter = 0
   for (let r = 0; r < N; r++)
     for (let c = 0; c < N; c++)
-      if (placements.some((p) => p.slot.row === r && p.slot.col === c))
-        numMap.set(key(r, c), ++counter)
+      if (slots.some((s) => s.row === r && s.col === c)) numMap.set(`${r},${c}`, ++counter)
 
-  const words: PlacedWord[] = placements
-    .map(({ slot, word }, id) => ({
-      ...word,
-      id,
-      number: numMap.get(key(slot.row, slot.col)) ?? 0,
+  const words: PlacedWord[] = slots
+    .map((slot, i) => ({
+      ...filled![i],
+      id: i,
+      number: numMap.get(`${slot.row},${slot.col}`) ?? 0,
       row: slot.row,
       col: slot.col,
-      direction: slot.direction as Direction,
+      direction: slot.direction,
     }))
     .sort((a, b) => a.number - b.number || (a.direction === 'across' ? -1 : 1))
 
-  const cells: (Cell | null)[][] = Array.from({ length: N }, (_, r) =>
-    Array.from({ length: N }, (_, c): Cell | null => {
-      if (letters[r][c] === null) return null
-      const wordIds = words
-        .filter((w) =>
-          w.direction === 'across'
-            ? w.row === r && c >= w.col && c < w.col + w.answer.length
-            : w.col === c && r >= w.row && r < w.row + w.answer.length
-        )
-        .map((w) => w.id)
-      if (!wordIds.length) return null
-      return {
-        row: r,
-        col: c,
-        solution: letters[r][c]!,
-        number: numMap.get(key(r, c)) ?? null,
-        wordIds,
+  const cells: GermanCell[][] = Array.from({ length: N }, () => Array(N).fill(null))
+
+  // Answer cells.
+  for (const word of words) {
+    const dr = word.direction === 'down' ? 1 : 0
+    const dc = word.direction === 'across' ? 1 : 0
+    for (let i = 0; i < word.answer.length; i++) {
+      const r = word.row + dr * i
+      const c = word.col + dc * i
+      const existing = cells[r][c] as AnswerGridCell | null
+      if (existing?.kind === 'answer') {
+        existing.wordIds.push(word.id)
+      } else {
+        cells[r][c] = {
+          kind: 'answer',
+          row: r,
+          col: c,
+          solution: word.answer[i],
+          number: numMap.get(`${r},${c}`) ?? null,
+          wordIds: [word.id],
+        }
       }
-    })
-  )
+    }
+  }
+
+  // Clue cells: the cell before each word start, which the structure guarantees
+  // is not an answer cell. Two words can share one, giving a split cell with a
+  // ▼ clue on top and a ▶ clue below.
+  for (const word of words) {
+    const r = word.direction === 'down' ? word.row - 1 : word.row
+    const c = word.direction === 'across' ? word.col - 1 : word.col
+    const entry: ClueCellEntry = { clue: word.clue, direction: word.direction, wordId: word.id }
+    const existing = cells[r][c]
+    if (existing === null) {
+      const clueCell: ClueGridCell = { kind: 'clue', row: r, col: c, entries: [entry] }
+      cells[r][c] = clueCell
+    } else if (existing.kind === 'clue') {
+      existing.entries.push(entry)
+    }
+  }
+
+  for (const row of cells)
+    for (const cell of row)
+      if (cell?.kind === 'clue' && cell.entries.length > 1)
+        cell.entries.sort((a) => (a.direction === 'down' ? -1 : 1))
 
   return { rows: N, cols: N, cells, words }
 }
