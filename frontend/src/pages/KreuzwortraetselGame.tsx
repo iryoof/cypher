@@ -22,6 +22,25 @@ function newPuzzle(): GermanPuzzle {
   return loadPuzzle(PUZZLES[i], pool)
 }
 
+/**
+ * Type size for a question, stepped down as it gets longer so it still fits its
+ * cell — the same trick printed puzzles use. A half cell has roughly half the
+ * height, so it drops a tier earlier.
+ */
+function clueFontSize(clue: string, split: boolean): string {
+  const n = clue.length
+  if (split) {
+    if (n <= 15) return 'clamp(5.5px, 1.28vw, 9px)'
+    if (n <= 25) return 'clamp(4.9px, 1.12vw, 7.9px)'
+    if (n <= 36) return 'clamp(4.4px, 1vw, 7px)'
+    return 'clamp(3.9px, 0.9vw, 6.2px)'
+  }
+  if (n <= 24) return 'clamp(6.4px, 1.45vw, 10.5px)'
+  if (n <= 36) return 'clamp(5.7px, 1.3vw, 9.4px)'
+  if (n <= 50) return 'clamp(5px, 1.15vw, 8.3px)'
+  return 'clamp(4.5px, 1.03vw, 7.4px)'
+}
+
 /** Paper palette. The puzzle reads as a printed sheet laid on the dark page. */
 const PAPER = {
   sheet: '#f2efe4',
@@ -208,7 +227,11 @@ export default function KreuzwortraetselGame() {
     setChecked(null)
   }, [answerCells])
 
-  const CS = 'clamp(22px, 6.6vw, 50px)'
+  // The questions are the smallest text on the page and set the floor for the
+  // grid. Twelve columns of readable German clue text do not fit a phone, so
+  // below the floor the sheet scrolls sideways rather than shrinking the type
+  // into illegibility.
+  const CS = 'clamp(48px, 7.9vw, 66px)'
 
   return (
     <div className="min-h-screen overflow-x-hidden text-white">
@@ -217,7 +240,7 @@ export default function KreuzwortraetselGame() {
         <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/5 to-transparent" />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
+      <div className="relative z-10 mx-auto w-full max-w-5xl px-4 py-8 sm:py-12">
 
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
@@ -307,44 +330,55 @@ export default function KreuzwortraetselGame() {
                         userSelect: 'none',
                       }}
                     >
+                      {/* Each half carries its own arrow, on the edge its word
+                          runs off: ▶ right of the across clue, ▼ under the down
+                          clue. Anchoring the arrows to the half rather than to
+                          the whole cell is what keeps a split cell readable. */}
                       {cell.entries.map((entry, i) => (
                         <div
                           key={i}
                           style={{
                             flex: 1,
                             minHeight: 0,
+                            position: 'relative',
                             display: 'flex', alignItems: 'center',
-                            padding: split ? '0 5px 0 2px' : '1px 6px 2px 2px',
+                            // Just enough room for the arrow; in a split cell
+                            // each half is barely taller than three lines, so
+                            // padding is the difference between fitting and not.
+                            padding: entry.direction === 'across'
+                              ? '1px 9px 1px 3px'
+                              : `${split ? 0 : 1}px 3px 5px 3px`,
                             borderBottom: split && i === 0 ? `0.5px solid ${PAPER.clueLine}` : 'none',
                             fontFamily: "'Space Grotesk', 'Segoe UI', sans-serif",
-                            fontSize: split ? 'clamp(3.4px, 0.95vw, 6px)' : 'clamp(3.8px, 1.05vw, 6.8px)',
+                            fontSize: clueFontSize(entry.clue, split),
                             fontWeight: 600,
-                            lineHeight: 1.12,
-                            letterSpacing: '-0.01em',
+                            lineHeight: 1.1,
+                            letterSpacing: '-0.015em',
                             color: PAPER.ink,
                             hyphens: 'auto',
                             overflow: 'hidden',
                           }}
                           lang="de"
                         >
-                          {entry.clue}
+                          <span style={{ overflow: 'hidden' }}>{entry.clue}</span>
+                          <span
+                            aria-hidden
+                            style={entry.direction === 'across'
+                              ? {
+                                  position: 'absolute', right: 0, top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  fontSize: 'clamp(6px, 1.7vw, 12px)', lineHeight: 1, color: PAPER.ink,
+                                }
+                              : {
+                                  position: 'absolute', bottom: -1, left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  fontSize: 'clamp(6px, 1.7vw, 12px)', lineHeight: 1, color: PAPER.ink,
+                                }}
+                          >
+                            {entry.direction === 'across' ? '▶' : '▼'}
+                          </span>
                         </div>
                       ))}
-
-                      {/* Arrows sit on the cell edge the word runs off, the way
-                          printed Schwedenrätsel mark direction. */}
-                      {cell.entries.some(e => e.direction === 'across') && (
-                        <span style={{
-                          position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
-                          fontSize: 'clamp(5px, 1.5vw, 10px)', lineHeight: 1, color: PAPER.ink,
-                        }}>▶</span>
-                      )}
-                      {cell.entries.some(e => e.direction === 'down') && (
-                        <span style={{
-                          position: 'absolute', bottom: -1, left: '50%', transform: 'translateX(-50%)',
-                          fontSize: 'clamp(5px, 1.5vw, 10px)', lineHeight: 1, color: PAPER.ink,
-                        }}>▼</span>
-                      )}
                     </div>
                   )
                 }
@@ -393,7 +427,7 @@ export default function KreuzwortraetselGame() {
                         textAlign: 'center',
                         fontFamily: "'Space Grotesk', 'Segoe UI', sans-serif",
                         textTransform: 'uppercase',
-                        fontSize: 'clamp(11px, 3.4vw, 21px)',
+                        fontSize: 'clamp(13px, 4vw, 27px)',
                         fontWeight: 700,
                         caretColor: 'transparent',
                         outline: 'none',

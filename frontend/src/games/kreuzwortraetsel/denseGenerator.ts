@@ -238,10 +238,11 @@ export function generateGermanPuzzle(pool: WordEntry[], rng?: () => number): Ger
     }
   }
 
+  // Across on top, down below, so each half sits next to its own arrow.
   for (const row of cells)
     for (const cell of row)
       if (cell?.kind === 'clue' && cell.entries.length > 1)
-        cell.entries.sort((a) => (a.direction === 'down' ? -1 : 1))
+        cell.entries.sort((a) => (a.direction === 'across' ? -1 : 1))
 
   return { rows: N, cols: N, cells, words }
 }

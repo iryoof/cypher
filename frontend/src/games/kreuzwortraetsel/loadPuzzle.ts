@@ -104,11 +104,14 @@ export function loadPuzzle(stored: StoredPuzzle, pool: WordEntry[]): GermanPuzzl
     }
   }
 
-  // Down clue on top, across below, matching how the split cells are drawn.
+  // Across clue on top, down clue below — each half must sit next to its own
+  // arrow. The ▶ is on the right edge beside the top half, the ▼ on the bottom
+  // edge beneath the lower half; the other order pairs every question with the
+  // wrong arrow.
   for (const row of cells)
     for (const cell of row)
       if (cell?.kind === 'clue' && cell.entries.length > 1)
-        cell.entries.sort((a) => (a.direction === 'down' ? -1 : 1))
+        cell.entries.sort((a) => (a.direction === 'across' ? -1 : 1))
 
   return { rows: SIZE, cols: SIZE, cells, words }
 }
