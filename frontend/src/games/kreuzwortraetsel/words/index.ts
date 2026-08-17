@@ -8,6 +8,7 @@ import { menschSprache } from './menschSprache'
 import { kurz } from './kurz'
 import { weitere } from './weitere'
 import { zwei } from './zwei'
+import { mehr } from './mehr'
 
 /** A raw pool entry: [Lösung, Frage]. Umlauts are written normally here. */
 export type RawEntry = [string, string]
@@ -41,7 +42,8 @@ export const CATEGORIES: Category[] = [
   menschSprache,
   kurz,
   weitere,
-  zwei
+  zwei,
+  mehr
 ]
 
 /**

@@ -47,12 +47,20 @@ function buildIndex(pool: WordEntry[], rng: () => number): WordIndex {
   return { byLen, byLetter }
 }
 
-/** Words that fit the letters already fixed in this slot by crossing words. */
+/**
+ * Words that fit the letters already fixed in this slot by crossing words.
+ *
+ * When a usage tally is supplied, rarer words come first. Without it the set
+ * leans on the same handful of answers: the pool is shuffled per puzzle, but
+ * nothing stops every puzzle reaching for the same short words, and short slots
+ * have few alternatives to begin with.
+ */
 function candidatesFor(
   grid: (string | null)[][],
   slot: Slot,
   index: WordIndex,
-  used: Set<string>
+  used: Set<string>,
+  usage?: Map<string, number>
 ): WordEntry[] {
   const pattern = cellsOfSlot(slot).map(([r, c]) => grid[r][c])
 
@@ -73,6 +81,8 @@ function candidatesFor(
       if (pattern[i] !== null && pattern[i] !== w.answer[i]) { ok = false; break }
     if (ok) out.push(w)
   }
+
+  if (usage) out.sort((a, b) => (usage.get(a.answer) ?? 0) - (usage.get(b.answer) ?? 0))
   return out
 }
 
@@ -85,7 +95,8 @@ function candidatesFor(
 function fillSlots(
   slots: Slot[],
   index: WordIndex,
-  budget: { steps: number }
+  budget: { steps: number },
+  usage?: Map<string, number>
 ): WordEntry[] | null {
   const grid: (string | null)[][] = Array.from({ length: N }, () => Array(N).fill(null))
   const chosen: (WordEntry | null)[] = slots.map(() => null)
@@ -98,7 +109,7 @@ function fillSlots(
     let bestCands: WordEntry[] = []
     for (let i = 0; i < slots.length; i++) {
       if (chosen[i]) continue
-      const cands = candidatesFor(grid, slots[i], index, used)
+      const cands = candidatesFor(grid, slots[i], index, used, usage)
       if (cands.length === 0) return false
       if (best === -1 || cands.length < bestCands.length) {
         best = i
@@ -135,12 +146,25 @@ function fillSlots(
  * down word through nearly every cell, and finding a fill takes seconds. It runs
  * offline (see scripts/generatePuzzles.ts), never in the browser.
  */
+export interface LayoutOptions {
+  attempts?: number
+  steps?: number
+  /**
+   * Cap on two-letter slots. German offers barely a hundred sensible two-letter
+   * answers, so a layout wanting a dozen of them forces the same handful into
+   * every puzzle. Roughly one valid layout in seven stays at or below six.
+   */
+  maxTwoLetterSlots?: number
+  /** Answer → how often it is already used across the set being generated. */
+  usage?: Map<string, number>
+}
+
 export function searchFilledLayout(
   pool: WordEntry[],
   rng: () => number,
-  attempts = 250,
-  steps = 4000
+  options: LayoutOptions = {}
 ): { isClue: boolean[][]; answers: string[] } | null {
+  const { attempts = 400, steps = 4000, maxTwoLetterSlots = 6, usage } = options
   const index = buildIndex(pool, rng)
 
   // Most layouts cannot be filled from a pool this size, and the ones that can
@@ -149,7 +173,8 @@ export function searchFilledLayout(
   for (let attempt = 0; attempt < attempts; attempt++) {
     const structure = buildStructure(N, rng)
     if (!structure.ok) continue
-    const filled = fillSlots(structure.slots, index, { steps })
+    if (structure.slots.filter((s) => s.len === 2).length > maxTwoLetterSlots) continue
+    const filled = fillSlots(structure.slots, index, { steps }, usage)
     if (filled) return { isClue: structure.isClue, answers: filled.map((w) => w.answer) }
   }
   return null

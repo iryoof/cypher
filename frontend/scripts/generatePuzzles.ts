@@ -28,24 +28,40 @@ function mulberry32(seed: number) {
 
 const out: { grid: string; answers: string[] }[] = []
 const t0 = Date.now()
+
+/**
+ * Each puzzle costs seconds of search, so `--append` keeps what is already in
+ * puzzles.ts and only looks for the shortfall. The seed advances past the run
+ * that produced them, otherwise the search would retrace its steps and find the
+ * same layouts again.
+ */
+const append = process.argv.includes('--append')
 let seed = 1
 
-while (out.length < TARGET) {
-  const found = searchFilledLayout(pool, mulberry32(seed++), 40)
-  if (!found) continue
-  out.push({ grid: serialiseGrid(found.isClue), answers: found.answers })
-  const done = out.length
-  if (done % 10 === 0 || done === TARGET) {
-    const secs = (Date.now() - t0) / 1000
-    console.log(`${done}/${TARGET} — ${secs.toFixed(0)}s (${(secs / done).toFixed(1)}s each)`)
-  }
+if (append) {
+  const existing = (await import('../src/games/kreuzwortraetsel/puzzles')).PUZZLES
+  out.push(...existing.map((p) => ({ grid: p.grid, answers: [...p.answers] })))
+  seed = 1_000_000 + out.length * 7919
+  console.log(`appending to ${out.length} existing puzzles`)
 }
 
-const body = out.map((p) => `  { grid: '${p.grid}', answers: ${JSON.stringify(p.answers)} },`).join('\n')
+/**
+ * How often each answer is already used. Passing this into the search pushes it
+ * towards answers the set has not shown yet, which is what stops the same short
+ * words appearing in puzzle after puzzle.
+ */
+const usage = new Map<string, number>()
+for (const p of out) for (const a of p.answers) usage.set(a, (usage.get(a) ?? 0) + 1)
 
-writeFileSync(
-  'src/games/kreuzwortraetsel/puzzles.ts',
-  `import type { StoredPuzzle } from './loadPuzzle'
+/** Each puzzle takes seconds to find, so save as we go rather than at the end. */
+function save() {
+  const body = out
+    .map((p) => `  { grid: '${p.grid}', answers: ${JSON.stringify(p.answers)} },`)
+    .join('\n')
+
+  writeFileSync(
+    'src/games/kreuzwortraetsel/puzzles.ts',
+    `import type { StoredPuzzle } from './loadPuzzle'
 
 /**
  * Pre-generated 12×12 layouts. Every one is completely filled: each cell is
@@ -58,7 +74,22 @@ export const PUZZLES: StoredPuzzle[] = [
 ${body}
 ]
 `,
-  'utf8'
-)
+    'utf8'
+  )
+}
 
+while (out.length < TARGET) {
+  const found = searchFilledLayout(pool, mulberry32(seed++), { usage })
+  if (!found) continue
+  for (const a of found.answers) usage.set(a, (usage.get(a) ?? 0) + 1)
+  out.push({ grid: serialiseGrid(found.isClue), answers: found.answers })
+  const done = out.length
+  if (done % 10 === 0 || done === TARGET) {
+    save()
+    const secs = (Date.now() - t0) / 1000
+    console.log(`${done}/${TARGET} — ${secs.toFixed(0)}s (${(secs / done).toFixed(1)}s each)`)
+  }
+}
+
+save()
 console.log(`\nwrote ${out.length} puzzles in ${((Date.now() - t0) / 1000).toFixed(0)}s`)
