@@ -1,7 +1,3 @@
-node_modules/
-dist/
-.env
-backend/saves/
 # Dependencies
 node_modules/
 package-lock.json
@@ -17,9 +13,10 @@ build/
 .env.local
 .env.*.local
 
-# IDE
+# IDE / tooling
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 .DS_Store
@@ -32,6 +29,7 @@ npm-debug.log*
 # Archive/Game data
 archives/
 *.json.bak
+backend/saves/
 
 # Runtime
 .cache/

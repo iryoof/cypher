@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { DIFFICULTY_PRESETS } from './types'
 import type { Difficulty } from './types'
-import { CATEGORIES } from './words'
+import { THEMES } from './words'
+import { PATTERNS } from './patterns'
 
 interface MainMenuProps {
   difficulty: Difficulty
@@ -9,6 +10,10 @@ interface MainMenuProps {
   categoryIds: string[]
   onToggleCategory: (id: string) => void
   poolSize: number
+  /** A grid is being filled — the search takes a moment and blocks the page. */
+  busy: boolean
+  /** The last attempt found no grid for the chosen themes. */
+  failed: boolean
   onStart: () => void
 }
 
@@ -18,6 +23,8 @@ export default function MainMenu({
   categoryIds,
   onToggleCategory,
   poolSize,
+  busy,
+  failed,
   onStart
 }: MainMenuProps) {
   return (
@@ -26,7 +33,7 @@ export default function MainMenu({
         <div className="text-center space-y-3">
           <span className="splash-tag">Solo · ohne Server</span>
           <h1 className="hero-title text-[clamp(2.2rem,9vw,3.6rem)] leading-none">
-            Kreuzworträtsel
+            Schwedenrätsel
           </h1>
           <p className="text-white/60 text-sm">
             Jedes Rätsel wird neu aus {poolSize.toLocaleString('de-DE')} Begriffen gewürfelt.
@@ -35,8 +42,11 @@ export default function MainMenu({
 
         <div className="space-y-3">
           <p className="section-kicker">Grösse</p>
-          <div className="grid grid-cols-3 gap-2">
-            {(Object.keys(DIFFICULTY_PRESETS) as Difficulty[]).map((key) => {
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {/* Only sizes that have proven grid shapes behind them. */}
+            {(Object.keys(DIFFICULTY_PRESETS) as Difficulty[])
+              .filter((key) => (PATTERNS[DIFFICULTY_PRESETS[key].size] ?? []).length > 0)
+              .map((key) => {
               const preset = DIFFICULTY_PRESETS[key]
               const isActive = key === difficulty
               return (
@@ -53,7 +63,7 @@ export default function MainMenu({
                 >
                   <span className="block">{preset.label}</span>
                   <span className="block font-mono-ui text-[0.65rem] text-white/40 mt-1">
-                    bis {preset.maxSize}×{preset.maxSize}
+                    {preset.size}×{preset.size} Felder
                   </span>
                 </button>
               )
@@ -64,7 +74,7 @@ export default function MainMenu({
         <div className="space-y-3">
           <p className="section-kicker">Themen</p>
           <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((category) => {
+            {THEMES.map((category) => {
               const isActive = categoryIds.includes(category.id)
               return (
                 <button
@@ -83,6 +93,11 @@ export default function MainMenu({
               )
             })}
           </div>
+          {failed && (
+            <p className="alert-warning rounded-lg px-3 py-2 text-xs">
+              Mit diesen Themen liess sich kein Gitter füllen. Mehr Themen auswählen.
+            </p>
+          )}
           {categoryIds.length === 0 && (
             <p className="alert-warning rounded-lg px-3 py-2 text-xs">
               Mindestens ein Thema auswählen.
@@ -94,10 +109,10 @@ export default function MainMenu({
           <button
             type="button"
             onClick={onStart}
-            disabled={categoryIds.length === 0}
+            disabled={categoryIds.length === 0 || busy}
             className="action-primary w-full rounded-xl px-6 py-4 text-base disabled:opacity-40"
           >
-            Rätsel starten
+            {busy ? 'Gitter wird gefüllt …' : 'Rätsel starten'}
           </button>
           <Link
             to="/"

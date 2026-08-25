@@ -3,7 +3,7 @@ import GamePortal from './pages/GamePortal'
 import CypherGame from './pages/CypherGame'
 import WerBinIchGame from './pages/WerBinIchGame'
 import WavelengthGame from './pages/WavelengthGame'
-import KreuzwortraetselGame from './pages/KreuzwortraetselGame'
+import SchwedenraetselGame from './pages/SchwedenraetselGame'
 
 export default function Root() {
   return (
@@ -13,9 +13,11 @@ export default function Root() {
         <Route path="/cypher/*" element={<CypherGame />} />
         <Route path="/werbinich/*" element={<WerBinIchGame />} />
         <Route path="/wavelength/*" element={<WavelengthGame />} />
-        <Route path="/kreuzwortraetsel/*" element={<KreuzwortraetselGame />} />
+        <Route path="/schwedenraetsel/*" element={<SchwedenraetselGame />} />
         {/* Legacy misspelled path, kept so older links keep working. */}
         <Route path="/wavvelength/*" element={<Navigate to="/wavelength" replace />} />
+        {/* The puzzle used to be a numbered crossword and lived here. */}
+        <Route path="/kreuzwortraetsel/*" element={<Navigate to="/schwedenraetsel" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

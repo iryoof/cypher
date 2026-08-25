@@ -33,15 +33,6 @@ export default function Game({ puzzle, onNewPuzzle, onBackToMenu }: GameProps) {
     [puzzle.words, activeWordId]
   )
 
-  const across = useMemo(
-    () => puzzle.words.filter((word) => word.direction === 'across'),
-    [puzzle.words]
-  )
-  const down = useMemo(
-    () => puzzle.words.filter((word) => word.direction === 'down'),
-    [puzzle.words]
-  )
-
   const solvedWordIds = useMemo(() => {
     const solved = new Set<number>()
     for (const word of puzzle.words) {
@@ -88,6 +79,15 @@ export default function Game({ puzzle, onNewPuzzle, onBackToMenu }: GameProps) {
       selectWord(next, { row: cell.row, col: cell.col })
     },
     [puzzle.words, cursor, activeWordId, selectWord]
+  )
+
+  /** Tapping a question in the grid jumps to the first letter of its word. */
+  const handleSelectClue = useCallback(
+    (wordId: number) => {
+      const word = puzzle.words.find((entry) => entry.id === wordId)
+      if (word) selectWord(word)
+    },
+    [puzzle.words, selectWord]
   )
 
   const moveWithinWord = useCallback(
@@ -261,44 +261,12 @@ export default function Game({ puzzle, onNewPuzzle, onBackToMenu }: GameProps) {
     setWrongCells(new Set())
   }, [])
 
-  const renderClueList = (title: string, words: PlacedWord[]) => (
-    <div className="flex-1 min-w-0">
-      <p className="section-kicker mb-3">{title}</p>
-      <ul className="space-y-1">
-        {words.map((word) => {
-          const isActive = word.id === activeWordId
-          const isSolved = solvedWordIds.has(word.id)
-          return (
-            <li key={word.id}>
-              <button
-                type="button"
-                onClick={() => selectWord(word)}
-                className={[
-                  'flex w-full gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-                  isActive ? 'bg-white/[0.10] text-white' : 'text-white/70 hover:bg-white/[0.05]'
-                ].join(' ')}
-              >
-                <span className="font-mono-ui text-xs text-white/45 pt-0.5 w-5 shrink-0 text-right">
-                  {word.number}
-                </span>
-                <span className={isSolved ? 'line-through text-white/40' : ''}>{word.clue}</span>
-                <span className="ml-auto font-mono-ui text-[0.65rem] text-white/30 shrink-0 pt-0.5">
-                  {word.answer.length}
-                </span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
-
   return (
     <div className="min-h-screen px-4 py-6">
       <div className="mx-auto w-full max-w-5xl space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="section-kicker">Kreuzworträtsel</p>
+            <p className="section-kicker">Schwedenrätsel</p>
             <h1 className="hero-title text-[clamp(1.4rem,5vw,2.2rem)] leading-none mt-1">
               {isComplete ? 'Gelöst' : 'Rätsel'}
             </h1>
@@ -326,8 +294,10 @@ export default function Game({ puzzle, onNewPuzzle, onBackToMenu }: GameProps) {
             revealedCells={revealedCells}
             wrongCells={wrongCells}
             activeWord={activeWord}
+            solvedWordIds={solvedWordIds}
             cursor={cursor}
             onSelectCell={handleSelectCell}
+            onSelectClue={handleSelectClue}
             onLetter={handleLetter}
             onBackspace={handleBackspace}
             onArrow={handleArrow}
@@ -336,8 +306,10 @@ export default function Game({ puzzle, onNewPuzzle, onBackToMenu }: GameProps) {
 
         {activeWord && (
           <div className="surface-panel-strong rounded-xl px-4 py-3">
+            {/* The question is printed in its field, but the field is small —
+                so the selected one is repeated here in full. */}
             <p className="section-kicker mb-1">
-              {activeWord.number} {activeWord.direction === 'across' ? 'waagerecht' : 'senkrecht'}
+              {activeWord.direction === 'across' ? 'waagerecht' : 'senkrecht'}
               {' · '}
               {activeWord.answer.length} Buchstaben
             </p>
@@ -368,11 +340,6 @@ export default function Game({ puzzle, onNewPuzzle, onBackToMenu }: GameProps) {
           <button type="button" onClick={onBackToMenu} className="action-ghost rounded-lg px-4 py-2 text-sm">
             Menü
           </button>
-        </div>
-
-        <div className="surface-panel flex flex-col gap-6 rounded-xl p-4 sm:flex-row sm:gap-8">
-          {renderClueList('Waagerecht', across)}
-          {renderClueList('Senkrecht', down)}
         </div>
       </div>
     </div>

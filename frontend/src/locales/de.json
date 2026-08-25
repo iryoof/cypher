@@ -46,7 +46,7 @@
   "wavelengthDescription": "Erraten Sie die Zahl durch Fragen",
   "pleaseEnterNickname": "Bitte geben Sie einen Spitznamen ein",
   "pleaseEnterCode": "Bitte geben Sie einen Code ein",
-  "crossword": "Kreuzworträtsel",
+  "arrowWords": "Schwedenrätsel",
   "soloPuzzle": "Rätsel für alleine",
-  "crosswordDescription": "Jedes Rätsel neu gewürfelt aus über 2000 Begriffen"
+  "arrowWordsDescription": "Fragen stehen im Gitter, jedes Rätsel neu gewürfelt"
 }

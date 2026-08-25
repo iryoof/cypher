@@ -46,7 +46,7 @@
   "wavelengthDescription": "Guess the number through questions",
   "pleaseEnterNickname": "Please enter a nickname",
   "pleaseEnterCode": "Please enter a code",
-  "crossword": "Crossword",
+  "arrowWords": "Arrow Words",
   "soloPuzzle": "Solo puzzle",
-  "crosswordDescription": "A fresh grid from over 2000 terms every time"
+  "arrowWordsDescription": "Clues sit inside the grid, a fresh puzzle every time"
 }
